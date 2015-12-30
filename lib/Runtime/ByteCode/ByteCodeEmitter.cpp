@@ -756,64 +756,49 @@ void BeginEmitBlock(ParseNode *pnodeBlock, ByteCodeGenerator *byteCodeGenerator,
         bool const isGlobalEvalBlockScope = scope->IsGlobalEvalBlockScope();
         Js::RegSlot frameDisplayLoc = Js::Constants::NoRegister;
         Js::RegSlot tmpInnerEnvReg = Js::Constants::NoRegister;
-        ParseNodePtr pnodeScope;
-        for (pnodeScope = pnodeBlock->sxBlock.pnodeScopes; pnodeScope;)
+
+        VisitFncDecls(
+            pnodeBlock->sxBlock.pnodeScopes,
+            [isGlobalEvalBlockScope, &frameDisplayLoc, &tmpInnerEnvReg, &funcInfo, &byteCodeGenerator]
+            (ParseNode* pnodeFnc)
         {
-            switch (pnodeScope->nop)
+            if (pnodeFnc->sxFnc.IsDeclaration())
             {
-            case knopFncDecl:
-                if (pnodeScope->sxFnc.IsDeclaration())
+                // The frameDisplayLoc register's lifetime has to be controlled by this function. We can't let
+                // it be released by DefineOneFunction, because further iterations of this loop can allocate
+                // temps, and we can't let frameDisplayLoc be re-purposed until this loop completes.
+                // So we'll supply a temp that we allocate and release here.
+                if (frameDisplayLoc == Js::Constants::NoRegister)
                 {
-                    // The frameDisplayLoc register's lifetime has to be controlled by this function. We can't let
-                    // it be released by DefineOneFunction, because further iterations of this loop can allocate
-                    // temps, and we can't let frameDisplayLoc be re-purposed until this loop completes.
-                    // So we'll supply a temp that we allocate and release here.
-                    if (frameDisplayLoc == Js::Constants::NoRegister)
+                    if (funcInfo->frameDisplayRegister != Js::Constants::NoRegister)
                     {
-                        if (funcInfo->frameDisplayRegister != Js::Constants::NoRegister)
-                        {
-                            frameDisplayLoc = funcInfo->frameDisplayRegister;
-                        }
-                        else
-                        {
-                            frameDisplayLoc = funcInfo->GetEnvRegister();
-                        }
-                        tmpInnerEnvReg = funcInfo->AcquireTmpRegister();
-                        frameDisplayLoc = byteCodeGenerator->PrependLocalScopes(frameDisplayLoc, tmpInnerEnvReg, funcInfo);
+                        frameDisplayLoc = funcInfo->frameDisplayRegister;
                     }
-                    byteCodeGenerator->DefineOneFunction(pnodeScope, funcInfo, true, frameDisplayLoc);
+                    else
+                    {
+                        frameDisplayLoc = funcInfo->GetEnvRegister();
+                    }
+                    tmpInnerEnvReg = funcInfo->AcquireTmpRegister();
+                    frameDisplayLoc = byteCodeGenerator->PrependLocalScopes(frameDisplayLoc, tmpInnerEnvReg, funcInfo);
                 }
-
-                // If this is the global eval block scope, the function is actually assigned to the global
-                // so we don't need to keep the registers.
-                if (isGlobalEvalBlockScope)
-                {
-                    funcInfo->ReleaseLoc(pnodeScope);
-                    pnodeScope->location = Js::Constants::NoRegister;
-                }
-                pnodeScope = pnodeScope->sxFnc.pnodeNext;
-                break;
-
-            case knopBlock:
-                pnodeScope = pnodeScope->sxBlock.pnodeNext;
-                break;
-
-            case knopCatch:
-                pnodeScope = pnodeScope->sxCatch.pnodeNext;
-                break;
-
-            case knopWith:
-                pnodeScope = pnodeScope->sxWith.pnodeNext;
-                break;
+                byteCodeGenerator->DefineOneFunction(pnodeFnc, funcInfo, true, frameDisplayLoc);
             }
-        }
+
+            // If this is the global eval block scope, the function is actually assigned to the global
+            // so we don't need to keep the registers.
+            if (isGlobalEvalBlockScope)
+            {
+                funcInfo->ReleaseLoc(pnodeFnc);
+                pnodeFnc->location = Js::Constants::NoRegister;
+            }
+        });
 
         if (tmpInnerEnvReg != Js::Constants::NoRegister)
         {
             funcInfo->ReleaseTmpRegister(tmpInnerEnvReg);
         }
 
-        if (pnodeBlock->sxBlock.scope->IsGlobalEvalBlockScope() && funcInfo->thisScopeSlot != Js::Constants::NoRegister)
+        if (isGlobalEvalBlockScope && funcInfo->thisScopeSlot != Js::Constants::NoRegister)
         {
             Scope* scope = funcInfo->GetGlobalEvalBlockScope();
             byteCodeGenerator->EmitInitCapturedThis(funcInfo, scope);
@@ -822,21 +807,13 @@ void BeginEmitBlock(ParseNode *pnodeBlock, ByteCodeGenerator *byteCodeGenerator,
     else
     {
         Scope *scope = pnodeBlock->sxBlock.scope;
-        if (scope)
-        {
-            if (scope->GetMustInstantiate())
-            {
-                debuggerScope = byteCodeGenerator->RecordStartScopeObject(pnodeBlock, Js::DiagExtraScopesType::DiagBlockScopeInObject);
-            }
-            else
-            {
-                debuggerScope = byteCodeGenerator->RecordStartScopeObject(pnodeBlock, Js::DiagExtraScopesType::DiagBlockScopeDirect);
-            }
-        }
-        else
-        {
-            debuggerScope = byteCodeGenerator->RecordStartScopeObject(pnodeBlock, Js::DiagExtraScopesType::DiagBlockScopeInSlot);
-        }
+        Js::DiagExtraScopesType scopeType =
+            scope != nullptr ?
+                scope->GetMustInstantiate() ?
+                    Js::DiagExtraScopesType::DiagBlockScopeInObject :
+                    Js::DiagExtraScopesType::DiagBlockScopeDirect :
+                Js::DiagExtraScopesType::DiagBlockScopeInSlot;
+        debuggerScope = byteCodeGenerator->RecordStartScopeObject(pnodeBlock, scopeType);
     }
 
     byteCodeGenerator->InitBlockScopedContent(pnodeBlock, debuggerScope, funcInfo);
@@ -981,38 +958,15 @@ void ByteCodeGenerator::DefineFunctions(FuncInfo *funcInfoParent)
 
 // Iterate over all child functions in a function's parameter and body scopes.
 template<typename Fn>
-void MapContainerScopeFunctions(ParseNode* pnodeScope, Fn fn)
+void VisitChildFncDecls(ParseNode* pnodeFnc, Fn fn)
 {
-    auto mapFncDeclsInScopeList = [&](ParseNode *pnodeHead)
+    pnodeFnc->sxFnc.MapContainerScopes([fn](ParseNode *pnodeScope)
     {
-        for (ParseNode *pnode = pnodeHead; pnode != nullptr;)
+        VisitFncDecls(pnodeScope, [fn](ParseNode* pnodeFnc)
         {
-            switch (pnode->nop)
-            {
-            case knopFncDecl:
-                fn(pnode);
-                pnode = pnode->sxFnc.pnodeNext;
-                break;
-
-            case knopBlock:
-                pnode = pnode->sxBlock.pnodeNext;
-                break;
-
-            case knopCatch:
-                pnode = pnode->sxCatch.pnodeNext;
-                break;
-
-            case knopWith:
-                pnode = pnode->sxWith.pnodeNext;
-                break;
-
-            default:
-                AssertMsg(false, "Unexpected opcode in tree of scopes");
-                return;
-            }
-        }
-    };
-    pnodeScope->sxFnc.MapContainerScopes(mapFncDeclsInScopeList);
+            fn(pnodeFnc);
+        });
+    });
 }
 
 void ByteCodeGenerator::DefineCachedFunctions(FuncInfo *funcInfoParent)
@@ -1027,7 +981,7 @@ void ByteCodeGenerator::DefineCachedFunctions(FuncInfo *funcInfoParent)
             slotCount++;
         }
     };
-    MapContainerScopeFunctions(pnodeParent, countFncSlots);
+    VisitChildFncDecls(pnodeParent, countFncSlots);
 
     if (slotCount == 0)
     {
@@ -1058,7 +1012,7 @@ void ByteCodeGenerator::DefineCachedFunctions(FuncInfo *funcInfoParent)
             slotCount++;
         }
     };
-    MapContainerScopeFunctions(pnodeParent, fillEntries);
+    VisitChildFncDecls(pnodeParent, fillEntries);
 
     m_writer.AuxNoReg(Js::OpCode::InitCachedFuncs,
         info,
@@ -1089,7 +1043,7 @@ void ByteCodeGenerator::DefineCachedFunctions(FuncInfo *funcInfoParent)
             slotCount++;
         }
     };
-    MapContainerScopeFunctions(pnodeParent, defineOrGetCachedFunc);
+    VisitChildFncDecls(pnodeParent, defineOrGetCachedFunc);
 
     AdeletePlus(alloc, extraBytes, info);
 }
@@ -1123,7 +1077,7 @@ void ByteCodeGenerator::DefineUncachedFunctions(FuncInfo *funcInfoParent)
             pnodeFnc->location = Js::Constants::NoRegister;
         }
     };
-    MapContainerScopeFunctions(pnodeParent, defineCheck);
+    VisitChildFncDecls(pnodeParent, defineCheck);
 }
 
 void EmitAssignmentToFuncName(ParseNode *pnodeFnc, ByteCodeGenerator *byteCodeGenerator, FuncInfo *funcInfoParent)
@@ -1598,7 +1552,7 @@ void ByteCodeGenerator::EmitScopeObjectInit(FuncInfo *funcInfo)
             }
         }
     };
-    MapContainerScopeFunctions(pnodeFnc, saveFunctionVarsToPropIdArray);
+    VisitChildFncDecls(pnodeFnc, saveFunctionVarsToPropIdArray);
 
     for (pnode = pnodeFnc->sxFnc.pnodeVars; pnode; pnode = pnode->sxVar.pnodeNext)
     {
@@ -3636,32 +3590,16 @@ void ByteCodeGenerator::StartEmitFunction(ParseNode *pnodeFnc)
                 funcInfo->EnsureNewTargetScopeSlot();
             }
 
-            auto ensureFncDeclScopeSlots = [&](ParseNode *pnodeScope)
+            pnodeFnc->sxFnc.MapContainerScopes([funcInfo](ParseNode *pnodeScope)
             {
-                for (pnode = pnodeScope; pnode;)
+                VisitFncDecls(pnodeScope, [funcInfo](ParseNode *pnodeFnc)
                 {
-                    switch (pnode->nop)
+                    if (pnodeFnc->sxFnc.IsDeclaration())
                     {
-                    case knopFncDecl:
-                        if (pnode->sxFnc.IsDeclaration())
-                        {
-                            EnsureFncDeclScopeSlot(pnode, funcInfo);
-                        }
-                        pnode = pnode->sxFnc.pnodeNext;
-                        break;
-                    case knopBlock:
-                        pnode = pnode->sxBlock.pnodeNext;
-                        break;
-                    case knopCatch:
-                        pnode = pnode->sxCatch.pnodeNext;
-                        break;
-                    case knopWith:
-                        pnode = pnode->sxWith.pnodeNext;
-                        break;
+                        EnsureFncDeclScopeSlot(pnodeFnc, funcInfo);
                     }
-                }
-            };
-            pnodeFnc->sxFnc.MapContainerScopes(ensureFncDeclScopeSlots);
+                });
+            });
 
             for (pnode = pnodeFnc->sxFnc.pnodeVars; pnode; pnode = pnode->sxVar.pnodeNext)
             {
@@ -3796,28 +3734,13 @@ void ByteCodeGenerator::EnsureLetConstScopeSlots(ParseNode *pnodeBlock, FuncInfo
 
 void ByteCodeGenerator::EnsureFncScopeSlots(ParseNode *pnode, FuncInfo *funcInfo)
 {
-    while (pnode)
+    VisitFncDecls(pnode, [funcInfo](ParseNode* pnodeFnc)
     {
-        switch (pnode->nop)
+        if (pnodeFnc->sxFnc.IsDeclaration())
         {
-        case knopFncDecl:
-            if (pnode->sxFnc.IsDeclaration())
-            {
-                CheckFncDeclScopeSlot(pnode, funcInfo);
-            }
-            pnode = pnode->sxFnc.pnodeNext;
-            break;
-        case knopBlock:
-            pnode = pnode->sxBlock.pnodeNext;
-            break;
-        case knopCatch:
-            pnode = pnode->sxCatch.pnodeNext;
-            break;
-        case knopWith:
-            pnode = pnode->sxWith.pnodeNext;
-            break;
+            CheckFncDeclScopeSlot(pnodeFnc, funcInfo);
         }
-    }
+    });
 }
 
 void ByteCodeGenerator::EndEmitFunction(ParseNode *pnodeFnc)

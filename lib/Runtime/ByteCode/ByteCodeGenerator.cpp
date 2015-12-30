@@ -2273,37 +2273,6 @@ void AddVarsToScope(ParseNode *vars, ByteCodeGenerator *byteCodeGenerator)
     }
 }
 
-template <class Fn>
-void VisitFncDecls(ParseNode *fns, Fn action)
-{
-    while (fns != nullptr)
-    {
-        switch (fns->nop)
-        {
-        case knopFncDecl:
-            action(fns);
-            fns = fns->sxFnc.pnodeNext;
-            break;
-
-        case knopBlock:
-            fns = fns->sxBlock.pnodeNext;
-            break;
-
-        case knopCatch:
-            fns = fns->sxCatch.pnodeNext;
-            break;
-
-        case knopWith:
-            fns = fns->sxWith.pnodeNext;
-            break;
-
-        default:
-            AssertMsg(false, "Unexpected opcode in tree of scopes");
-            return;
-        }
-    }
-}
-
 FuncInfo* PreVisitFunction(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerator)
 {
     // Do binding of function name(s), initialize function scope, propagate function-wide properties from
@@ -3989,7 +3958,7 @@ void Bind(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
             FuncInfo* globFuncInfo = byteCodeGenerator->StartBindGlobalStatements(pnode);
             pnode->sxFnc.funcInfo = globFuncInfo;
             AddFunctionsToScope(pnode->sxFnc.GetTopLevelScope(), byteCodeGenerator);
-        AddVarsToScope(pnode->sxFnc.pnodeVars, byteCodeGenerator);
+            AddVarsToScope(pnode->sxFnc.pnodeVars, byteCodeGenerator);
             // There are no args to add, but "eval" gets a this pointer.
             byteCodeGenerator->SetNumberOfInArgs(!!(byteCodeGenerator->GetFlags() & fscrEvalCode));
             if (!globFuncInfo->IsFakeGlobalFunction(byteCodeGenerator->GetFlags()))
@@ -4050,47 +4019,47 @@ void Bind(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
         break;
     case knopThis:
     case knopSuper:
-    {
-        FuncInfo *top = byteCodeGenerator->TopFuncInfo();
-        if (top->IsGlobalFunction() && !(byteCodeGenerator->GetFlags() & fscrEval))
         {
-            top->SetHasGlobalRef(true);
-        }
-        else if (top->IsLambda())
-        {
-            byteCodeGenerator->MarkThisUsedInLambda();
-        }
-
-        // "this" should be loaded for both global and non-global functions
-        byteCodeGenerator->TopFuncInfo()->GetParsedFunctionBody()->SetHasThis(true);
-        break;
-    }
-    case knopName:
-    {
-        if (pnode->sxPid.sym == nullptr)
-        {
-            if (pnode->grfpn & fpnMemberReference)
+            FuncInfo *top = byteCodeGenerator->TopFuncInfo();
+            if (top->IsGlobalFunction() && !(byteCodeGenerator->GetFlags() & fscrEval))
             {
-                // This is a member name. No binding.
-                break;
+                top->SetHasGlobalRef(true);
+            }
+            else if (top->IsLambda())
+            {
+                byteCodeGenerator->MarkThisUsedInLambda();
             }
 
-            Symbol *sym = byteCodeGenerator->FindSymbol(pnode->sxPid.symRef, pnode->sxPid.pid);
-            if (sym)
+            // "this" should be loaded for both global and non-global functions
+            byteCodeGenerator->TopFuncInfo()->GetParsedFunctionBody()->SetHasThis(true);
+            break;
+        }
+    case knopName:
+        {
+            if (pnode->sxPid.sym == nullptr)
             {
-                // This is a named load, not just a reference, so if it's a nested function note that all
-                // the nested scopes escape.
-                Assert(!sym->GetDecl() || (pnode->sxPid.symRef && *pnode->sxPid.symRef));
-                Assert(!sym->GetDecl() || ((*pnode->sxPid.symRef)->GetDecl() == sym->GetDecl()));
-
-                pnode->sxPid.sym = sym;
-                if (sym->GetSymbolType() == STFunction &&
-                    (!sym->GetIsGlobal() || (byteCodeGenerator->GetFlags() & fscrEval)))
+                if (pnode->grfpn & fpnMemberReference)
                 {
-                    byteCodeGenerator->FuncEscapes(sym->GetScope());
+                    // This is a member name. No binding.
+                    break;
+                }
+
+                Symbol *sym = byteCodeGenerator->FindSymbol(pnode->sxPid.symRef, pnode->sxPid.pid);
+                if (sym)
+                {
+                    // This is a named load, not just a reference, so if it's a nested function note that all
+                    // the nested scopes escape.
+                    Assert(!sym->GetDecl() || (pnode->sxPid.symRef && *pnode->sxPid.symRef));
+                    Assert(!sym->GetDecl() || ((*pnode->sxPid.symRef)->GetDecl() == sym->GetDecl()));
+
+                    pnode->sxPid.sym = sym;
+                    if (sym->GetSymbolType() == STFunction &&
+                        (!sym->GetIsGlobal() || (byteCodeGenerator->GetFlags() & fscrEval)))
+                    {
+                        byteCodeGenerator->FuncEscapes(sym->GetScope());
+                    }
                 }
             }
-        }
 
             FuncInfo *top = byteCodeGenerator->TopFuncInfo();
             if (pnode->sxPid.sym == nullptr || pnode->sxPid.sym->GetIsGlobal())
@@ -4100,11 +4069,11 @@ void Bind(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
 
             if (pnode->sxPid.sym)
             {
-            pnode->sxPid.sym->SetIsUsed(true);
-        }
+                pnode->sxPid.sym->SetIsUsed(true);
+            }
 
-        break;
-    }
+            break;
+        }
     case knopMember:
     case knopMemberShort:
     case knopObjectPatternMember:
@@ -4118,7 +4087,7 @@ void Bind(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
     case knopSetMember:
         {
             // lhs is knopStr, rhs is expr
-        ParseNode *id = pnode->sxBin.pnode1;
+            ParseNode *id = pnode->sxBin.pnode1;
             if (id->nop == knopStr || id->nop == knopName)
             {
                 byteCodeGenerator->AssignPropertyId(id->sxPid.pid);
@@ -4184,35 +4153,14 @@ void Bind(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
         break;
 
     case knopBlock:
-    {
-        for (ParseNode *pnodeScope = pnode->sxBlock.pnodeScopes; pnodeScope; /* no increment */)
+        VisitFncDecls(pnode->sxBlock.pnodeScopes, [byteCodeGenerator](ParseNode* pnodeFnc)
         {
-            switch (pnodeScope->nop)
+            if (pnodeFnc->sxFnc.IsDeclaration())
             {
-            case knopFncDecl:
-                if (pnodeScope->sxFnc.IsDeclaration())
-                {
-                    byteCodeGenerator->ProcessCapturedSyms(pnodeScope);
-                }
-                pnodeScope = pnodeScope->sxFnc.pnodeNext;
-                break;
-
-            case knopBlock:
-                pnodeScope = pnodeScope->sxBlock.pnodeNext;
-                break;
-
-            case knopCatch:
-                pnodeScope = pnodeScope->sxCatch.pnodeNext;
-                break;
-
-            case knopWith:
-                pnodeScope = pnodeScope->sxWith.pnodeNext;
-                break;
+                byteCodeGenerator->ProcessCapturedSyms(pnodeFnc);
             }
-        }
+        });
         break;
-    }
-
     }
 }
 

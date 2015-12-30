@@ -395,3 +395,34 @@ struct ApplyCheck {
     bool insideApplyCall;
     bool sawApply;
 };
+
+template <class Fn>
+void VisitFncDecls(ParseNode *fns, Fn action)
+{
+    while (fns != nullptr)
+    {
+        switch (fns->nop)
+        {
+        case knopFncDecl:
+            action(fns);
+            fns = fns->sxFnc.pnodeNext;
+            break;
+
+        case knopBlock:
+            fns = fns->sxBlock.pnodeNext;
+            break;
+
+        case knopCatch:
+            fns = fns->sxCatch.pnodeNext;
+            break;
+
+        case knopWith:
+            fns = fns->sxWith.pnodeNext;
+            break;
+
+        default:
+            AssertMsg(false, "Unexpected opcode in tree of scopes");
+            return;
+        }
+    }
+}

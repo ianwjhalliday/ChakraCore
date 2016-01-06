@@ -8061,7 +8061,7 @@ ParseNodePtr Parser::ParseCatch()
     ParseNodePtr pnodeCatchScope = nullptr;
     StmtNest stmt;
     IdentPtr pidCatch = nullptr;
-    //while (tkCATCH == m_token.tk)
+
     if (tkCATCH == m_token.tk)
     {
         charcount_t ichMin;

@@ -4178,7 +4178,7 @@ void ByteCodeGenerator::EmitLoadInstance(Symbol *sym, IdentPtr pid, Js::RegSlot 
         Js::ByteCodeLabel nextLabel = this->m_writer.DefineLabel();
         Js::PropertyId propertyId = sym ? sym->EnsurePosition(this) : pid->GetPropertyId();
 
-        bool unwrapWithObj = scope->GetScopeType() == ScopeType_With && scriptContext->GetConfig()->IsES6UnscopablesEnabled();
+        bool unwrapWithObj = scope->GetScopeType() == ScopeType_With;
         if (envIndex != -1)
         {
             this->m_writer.BrEnvProperty(
@@ -4530,7 +4530,7 @@ void ByteCodeGenerator::EmitPropStore(Js::RegSlot rhsLocation, Symbol *sym, Iden
         Js::PropertyId propertyId = sym ? sym->EnsurePosition(this) : pid->GetPropertyId();
 
         Js::RegSlot unwrappedScopeLocation = scopeLocation;
-        bool unwrapWithObj = scope->GetScopeType() == ScopeType_With && scriptContext->GetConfig()->IsES6UnscopablesEnabled();
+        bool unwrapWithObj = scope->GetScopeType() == ScopeType_With;
         if (envIndex != -1)
         {
             this->m_writer.BrEnvProperty(
@@ -4804,7 +4804,7 @@ void ByteCodeGenerator::EmitPropLoad(Js::RegSlot lhsLocation, Symbol *sym, Ident
         Js::PropertyId propertyId = sym ? sym->EnsurePosition(this) : pid->GetPropertyId();
 
         Js::RegSlot unwrappedScopeLocation = Js::Constants::NoRegister;
-        bool unwrapWithObj = scope->GetScopeType() == ScopeType_With && scriptContext->GetConfig()->IsES6UnscopablesEnabled();
+        bool unwrapWithObj = scope->GetScopeType() == ScopeType_With;
         if (envIndex != -1)
         {
             this->m_writer.BrEnvProperty(
@@ -5046,7 +5046,7 @@ void ByteCodeGenerator::EmitPropDelete(Js::RegSlot lhsLocation, Symbol *sym, Ide
 
         Js::ByteCodeLabel nextLabel = this->m_writer.DefineLabel();
         Js::PropertyId propertyId = sym ? sym->EnsurePosition(this) : pid->GetPropertyId();
-        bool unwrapWithObj = scope->GetScopeType() == ScopeType_With && scriptContext->GetConfig()->IsES6UnscopablesEnabled();
+        bool unwrapWithObj = scope->GetScopeType() == ScopeType_With;
         if (envIndex != -1)
         {
             this->m_writer.BrEnvProperty(
@@ -5208,7 +5208,7 @@ void ByteCodeGenerator::EmitPropTypeof(Js::RegSlot lhsLocation, Symbol *sym, Ide
         Js::ByteCodeLabel nextLabel = this->m_writer.DefineLabel();
         Js::PropertyId propertyId = sym ? sym->EnsurePosition(this) : pid->GetPropertyId();
 
-        bool unwrapWithObj = scope->GetScopeType() == ScopeType_With && scriptContext->GetConfig()->IsES6UnscopablesEnabled();
+        bool unwrapWithObj = scope->GetScopeType() == ScopeType_With;
         if (envIndex != -1)
         {
             this->m_writer.BrEnvProperty(Js::OpCode::BrOnNoEnvProperty, nextLabel,
@@ -10338,12 +10338,9 @@ void Emit(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator, FuncInfo *func
         funcInfo->AcquireLoc(pnode);
         Emit(pnode->sxWith.pnodeObj, byteCodeGenerator, funcInfo, false);
 
-        Js::RegSlot regVal = (byteCodeGenerator->GetScriptContext()->GetConfig()->IsES6UnscopablesEnabled()) ? funcInfo->AcquireTmpRegister() : pnode->location;
+        Js::RegSlot regVal = funcInfo->AcquireTmpRegister();
         byteCodeGenerator->Writer()->Reg2(Js::OpCode::Conv_Obj, regVal, pnode->sxWith.pnodeObj->location);
-        if (byteCodeGenerator->GetScriptContext()->GetConfig()->IsES6UnscopablesEnabled())
-        {
-            byteCodeGenerator->Writer()->Reg2(Js::OpCode::NewWithObject, pnode->location, regVal);
-        }
+        byteCodeGenerator->Writer()->Reg2(Js::OpCode::NewWithObject, pnode->location, regVal);
         byteCodeGenerator->EndStatement(pnode);
 
 #ifdef PERF_HINT
@@ -10375,10 +10372,7 @@ void Emit(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator, FuncInfo *func
         {
             byteCodeGenerator->Writer()->MarkLabel(pnode->sxStmt.breakLabel);
         }
-        if (byteCodeGenerator->GetScriptContext()->GetConfig()->IsES6UnscopablesEnabled())
-        {
-            funcInfo->ReleaseTmpRegister(regVal);
-        }
+        funcInfo->ReleaseTmpRegister(regVal);
         funcInfo->ReleaseLoc(pnode->sxWith.pnodeObj);
         break;
     }

@@ -418,8 +418,6 @@ namespace Js
             DeferredTypeHandler<InitializeFunctionPrototype>::GetDefaultInstance()), &JavascriptFunction::EntryInfo::PrototypeEntryPoint);
 
         javascriptEnumeratorIteratorPrototype = nullptr;
-        generatorFunctionPrototype = nullptr;
-        generatorPrototype = nullptr;
         asyncFunctionPrototype = nullptr;
 
         symbolPrototype = DynamicObject::New(recycler,
@@ -470,16 +468,13 @@ namespace Js
                 DeferredTypeHandler<InitializeJavascriptEnumeratorIteratorPrototype>::GetDefaultInstance()));
         }
 
-        if (scriptContext->GetConfig()->IsES6GeneratorsEnabled())
-        {
-            generatorFunctionPrototype = DynamicObject::New(recycler,
-                DynamicType::New(scriptContext, TypeIds_Object, functionPrototype, nullptr,
-                DeferredTypeHandler<InitializeGeneratorFunctionPrototype>::GetDefaultInstance()));
+        generatorFunctionPrototype = DynamicObject::New(recycler,
+            DynamicType::New(scriptContext, TypeIds_Object, functionPrototype, nullptr,
+            DeferredTypeHandler<InitializeGeneratorFunctionPrototype>::GetDefaultInstance()));
 
-            generatorPrototype = DynamicObject::New(recycler,
-                DynamicType::New(scriptContext, TypeIds_Object, iteratorPrototype, nullptr,
-                DeferredTypeHandler<InitializeGeneratorPrototype>::GetDefaultInstance()));
-        }
+        generatorPrototype = DynamicObject::New(recycler,
+            DynamicType::New(scriptContext, TypeIds_Object, iteratorPrototype, nullptr,
+            DeferredTypeHandler<InitializeGeneratorPrototype>::GetDefaultInstance()));
 
         if (scriptContext->GetConfig()->IsES7AsyncAndAwaitEnabled())
         {
@@ -741,13 +736,10 @@ namespace Js
         stringIteratorType = DynamicType::New(scriptContext, TypeIds_StringIterator, stringIteratorPrototype, nullptr,
             SimplePathTypeHandler::New(scriptContext, scriptContext->GetRootPath(), 0, 0, 0, true, true), true, true);
 
-        if (config->IsES6GeneratorsEnabled())
-        {
-            generatorConstructorPrototypeObjectType = DynamicType::New(scriptContext, TypeIds_Object, generatorPrototype, nullptr,
-                NullTypeHandler<false>::GetDefaultInstance(), true, true);
+        generatorConstructorPrototypeObjectType = DynamicType::New(scriptContext, TypeIds_Object, generatorPrototype, nullptr,
+            NullTypeHandler<false>::GetDefaultInstance(), true, true);
 
-            generatorConstructorPrototypeObjectType->SetHasNoEnumerableProperties(true);
-        }
+        generatorConstructorPrototypeObjectType->SetHasNoEnumerableProperties(true);
 
 #ifdef ENABLE_DEBUG_CONFIG_OPTIONS
         debugDisposableObjectType = DynamicType::New(scriptContext, TypeIds_Object, objectPrototype, nullptr,
@@ -1432,15 +1424,10 @@ namespace Js
             DeferredTypeHandler<InitializeWeakSetConstructor>::GetDefaultInstance());
         AddFunction(globalObject, PropertyIds::WeakSet, weakSetConstructor);
 
-        generatorFunctionConstructor = nullptr;
-
-        if (scriptContext->GetConfig()->IsES6GeneratorsEnabled())
-        {
-            generatorFunctionConstructor = CreateBuiltinConstructor(&JavascriptGeneratorFunction::EntryInfo::NewInstance,
-                DeferredTypeHandler<InitializeGeneratorFunctionConstructor>::GetDefaultInstance(),
-                functionConstructor);
-            // GeneratorFunction is not a global property by ES6 spec so don't add it to the global object
-        }
+        generatorFunctionConstructor = CreateBuiltinConstructor(&JavascriptGeneratorFunction::EntryInfo::NewInstance,
+            DeferredTypeHandler<InitializeGeneratorFunctionConstructor>::GetDefaultInstance(),
+            functionConstructor);
+        // GeneratorFunction is not a global property by ES6 spec so don't add it to the global object
 
         asyncFunctionConstructor = nullptr;
 
@@ -5409,7 +5396,6 @@ namespace Js
 
     JavascriptGenerator* JavascriptLibrary::CreateGenerator(Arguments& args, ScriptFunction* scriptFunction, RecyclableObject* prototype)
     {
-        Assert(scriptContext->GetConfig()->IsES6GeneratorsEnabled());
         DynamicType* generatorType = CreateGeneratorType(prototype);
         return RecyclerNew(this->GetRecycler(), JavascriptGenerator, generatorType, args, scriptFunction);
     }
@@ -5587,8 +5573,6 @@ namespace Js
 
     JavascriptGeneratorFunction* JavascriptLibrary::CreateGeneratorFunction(JavascriptMethod entryPoint, GeneratorVirtualScriptFunction* scriptFunction)
     {
-        Assert(scriptContext->GetConfig()->IsES6GeneratorsEnabled());
-
         DynamicType* type = CreateDeferredPrototypeGeneratorFunctionType(entryPoint, scriptFunction->IsAnonymousFunction());
 
         return EnsureReadyIfHybridDebugging(RecyclerNewEnumClass(this->GetRecycler(), EnumFunctionClass, JavascriptGeneratorFunction, type, scriptFunction));

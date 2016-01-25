@@ -3206,8 +3206,7 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, ulong* pNameHintLength
             }
         }
 
-        bool isGenerator = m_scriptContext->GetConfig()->IsES6GeneratorsEnabled() &&
-                           m_token.tk == tkStar;
+        bool isGenerator = m_token.tk == tkStar;
         ushort fncDeclFlags = fFncNoName | fFncMethod;
         if (isGenerator)
         {
@@ -4343,7 +4342,6 @@ bool Parser::ParseFncDeclHelper(ParseNodePtr pnodeFnc, ParseNodePtr pnodeFncPare
                     if (pnodeFnc->sxFnc.IsGenerator())
                     {
                         Assert(m_token.tk == tkStar);
-                        Assert(m_scriptContext->GetConfig()->IsES6GeneratorsEnabled());
                         Assert(!(flags & fFncClassMember));
                         m_pscan->Scan();
                     }
@@ -4917,17 +4915,11 @@ bool Parser::ParseFncNames(ParseNodePtr pnodeFnc, ParseNodePtr pnodeFncParent, u
 
     m_pscan->Scan();
 
-    // If generators are enabled then we are in a recent enough version
-    // that deferred parsing will create a parse node for pnodeFnc and
-    // it is safe to assume it is not null.
     if (flags & fFncGenerator)
     {
-        Assert(m_scriptContext->GetConfig()->IsES6GeneratorsEnabled());
         pnodeFnc->sxFnc.SetIsGenerator();
     }
-    else if (m_scriptContext->GetConfig()->IsES6GeneratorsEnabled() &&
-        m_token.tk == tkStar &&
-        !(flags & fFncClassMember))
+    else if (m_token.tk == tkStar && !(flags & fFncClassMember))
     {
         if (!fDeclaration)
         {
@@ -6059,9 +6051,7 @@ ParseNodePtr Parser::ParseClassDecl(BOOL isDeclaration, LPCOLESTR pNameHint, ulo
             }
         }
 
-        bool isGenerator = m_scriptContext->GetConfig()->IsES6GeneratorsEnabled() &&
-                           m_token.tk == tkStar;
-        if (isGenerator)
+        if (m_token.tk == tkStar)
         {
             fncDeclFlags |= fFncGenerator;
             m_pscan->ScanForcingPid();

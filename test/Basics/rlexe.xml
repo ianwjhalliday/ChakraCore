@@ -11,7 +11,7 @@
   <test>
     <default>
       <files>ie12ScriptFunctionToStrings.js</files>
-      <compile-flags>-ES6Generators -args summary -endargs</compile-flags>
+      <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>-->
   <test>

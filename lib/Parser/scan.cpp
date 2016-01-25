@@ -1883,7 +1883,7 @@ LEof:
             if (!Js::NumberUtilities::IsDigit(*p))
             {
                 // Not a double
-                if (m_scriptContext->GetConfig()->IsES6SpreadEnabled() && PeekFirst(p, last) == '.' && PeekFirst(p + 1, last) == '.')
+                if (PeekFirst(p, last) == '.' && PeekFirst(p + 1, last) == '.')
                 {
                     token = tkEllipsis;
                     p += 2;

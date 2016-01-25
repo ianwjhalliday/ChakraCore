@@ -568,10 +568,7 @@ namespace Js
 
         withType = StaticType::New(scriptContext, TypeIds_WithScopeObject, GetNull(), nullptr);
 
-        if (config->IsES6SpreadEnabled())
-        {
-            SpreadArgumentType = DynamicType::New(scriptContext, TypeIds_SpreadArgument, GetNull(), nullptr, NullTypeHandler<false>::GetDefaultInstance(), true, true);
-        }
+        spreadArgumentType = DynamicType::New(scriptContext, TypeIds_SpreadArgument, GetNull(), nullptr, NullTypeHandler<false>::GetDefaultInstance(), true, true);
 
         if (config->IsES6ProxyEnabled())
         {

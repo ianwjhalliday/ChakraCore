@@ -282,7 +282,7 @@ namespace Js
         DynamicType * weakSetType;
         DynamicType * proxyType;
         StaticType  * withType;
-        DynamicType * SpreadArgumentType;
+        DynamicType * spreadArgumentType;
         PropertyDescriptor defaultPropertyDescriptor;
 
         JavascriptString* nullString;
@@ -611,7 +611,7 @@ namespace Js
         DynamicType * GetBoundFunctionType() const { return boundFunctionType; }
         DynamicType * GetRegExpConstructorType() const { return regexConstructorType; }
         StaticType  * GetEnumeratorType() const { return enumeratorType; }
-        DynamicType * GetSpreadArgumentType() const { return SpreadArgumentType; }
+        DynamicType * GetSpreadArgumentType() const { return spreadArgumentType; }
         StaticType  * GetWithType() const { return withType; }
         DynamicType * GetErrorType() const { return errorType; }
         DynamicType * GetEvalErrorType() const { return evalErrorType; }

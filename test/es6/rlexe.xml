@@ -292,40 +292,40 @@
   <test>
     <default>
       <files>classes_bugfixes.js</files>
-      <compile-flags>-ES6Spread -Off:Deferparse -args summary -endargs</compile-flags>
+      <compile-flags>-Off:Deferparse -args summary -endargs</compile-flags>
       <tags>BugFix</tags>
     </default>
   </test>
   <test>
     <default>
       <files>classes_bugfixes.js</files>
-      <compile-flags>-ES6Spread -Force:Deferparse -args summary -endargs</compile-flags>
+      <compile-flags>-Force:Deferparse -args summary -endargs</compile-flags>
       <tags>BugFix</tags>
     </default>
   </test>
   <test>
     <default>
       <files>ES6SubclassableBuiltins.js</files>
-      <compile-flags>-ES6Spread -Off:Deferparse -args summary -endargs</compile-flags>
+      <compile-flags>-Off:Deferparse -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
     <default>
       <files>ES6SubclassableBuiltins.js</files>
-      <compile-flags>-ES6Spread -Force:Deferparse -args summary -endargs</compile-flags>
+      <compile-flags>-Force:Deferparse -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
     <default>
       <files>ES6SubclassableAsync.js</files>
-      <compile-flags>-ES6Spread -Off:Deferparse</compile-flags>
+      <compile-flags>-Off:Deferparse</compile-flags>
       <baseline>ES6SubclassableAsync.baseline</baseline>
     </default>
   </test>
   <test>
     <default>
       <files>ES6SubclassableAsync.js</files>
-      <compile-flags>-ES6Spread -Force:Deferparse</compile-flags>
+      <compile-flags>-Force:Deferparse</compile-flags>
       <baseline>ES6SubclassableAsync.baseline</baseline>
     </default>
   </test>
@@ -516,7 +516,7 @@
   <test>
     <default>
       <files>spread.js</files>
-      <compile-flags>-ES6Spread -args summary -endargs</compile-flags>
+      <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -680,13 +680,13 @@
   <test>
     <default>
       <files>rest.js</files>
-      <compile-flags>-ES6Rest -ES6Spread -ES6DefaultArgs -args summary -endargs</compile-flags>
+      <compile-flags>-ES6DefaultArgs -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
     <default>
       <files>rest.js</files>
-      <compile-flags>-ES6Rest -ES6Spread -ES6DefaultArgs -force:deferparse -args summary -endargs</compile-flags>
+      <compile-flags>-ES6DefaultArgs -force:deferparse -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -757,19 +757,19 @@
   <test>
     <default>
       <files>destructuring.js</files>
-      <compile-flags>-ES6Rest -ES6Destructuring -ES6DefaultArgs -args summary -endargs</compile-flags>
+      <compile-flags>-ES6Destructuring -ES6DefaultArgs -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
     <default>
       <files>destructuring_obj.js</files>
-      <compile-flags>-ES6Rest -ES6Destructuring -ES6DefaultArgs -args summary -endargs</compile-flags>
+      <compile-flags>-ES6Destructuring -ES6DefaultArgs -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
     <default>
       <files>destructuring_params.js</files>
-      <compile-flags>-ES6Rest -ES6Destructuring -ES6DefaultArgs -args summary -endargs</compile-flags>
+      <compile-flags>-ES6Destructuring -ES6DefaultArgs -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -788,7 +788,6 @@
   <test>
     <default>
       <files>bug_279376.js</files>
-      <compile-flags>-es6spread</compile-flags>
     </default>
   </test>
   <test>
@@ -801,7 +800,7 @@
     <default>
       <files>blue_641922.js</files>
       <baseline>blue_641922.baseline</baseline>
-      <compile-flags> -ES6Rest -RecyclerNoPageReuse -PageHeap:2</compile-flags>
+      <compile-flags>-RecyclerNoPageReuse -PageHeap:2</compile-flags>
       <tags>exclude_fre</tags>
     </default>
   </test>

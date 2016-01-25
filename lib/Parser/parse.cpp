@@ -5116,7 +5116,7 @@ void Parser::ParseFncFormals(ParseNodePtr pnodeFnc, ushort flags)
         for (Js::ArgSlot argPos = 0; ; ++argPos)
         {
             bool isBindingPattern = false;
-            if (m_scriptContext->GetConfig()->IsES6RestEnabled() && m_token.tk == tkEllipsis)
+            if (m_token.tk == tkEllipsis)
             {
                 // Possible rest parameter
                 m_pscan->Scan();
@@ -5230,7 +5230,7 @@ void Parser::ParseFncFormals(ParseNodePtr pnodeFnc, ushort flags)
 
                 if (m_token.tk == tkAsg && m_scriptContext->GetConfig()->IsES6DefaultArgsEnabled())
                 {
-                    if (seenRestParameter && m_scriptContext->GetConfig()->IsES6RestEnabled())
+                    if (seenRestParameter)
                     {
                         Error(ERRRestWithDefault);
                     }

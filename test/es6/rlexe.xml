@@ -149,7 +149,7 @@
   <test>
     <default>
       <files>map_functionality.js</files>
-      <compile-flags>-ES6ObjectLiterals -args summary -endargs</compile-flags>
+      <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -161,7 +161,7 @@
   <test>
     <default>
       <files>set_functionality.js</files>
-      <compile-flags>-ES6ObjectLiterals -args summary -endargs</compile-flags>
+      <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -173,7 +173,7 @@
   <test>
     <default>
       <files>weakmap_functionality.js</files>
-      <compile-flags>-ES6ObjectLiterals -args summary -endargs</compile-flags>
+      <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -185,7 +185,7 @@
   <test>
     <default>
       <files>weakset_functionality.js</files>
-      <compile-flags>-ES6ObjectLiterals -args summary -endargs</compile-flags>
+      <compile-flags>-args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -382,14 +382,14 @@
   <test>
     <default>
       <files>ES6TypedArrayExtensions.js</files>
-      <compile-flags> -ES6 -ES6TypedArrayExtensions -es6tostringtag -ES6ObjectLiterals -es7Builtins -ES6Species -args summary -endargs</compile-flags>
+      <compile-flags> -ES6 -ES6TypedArrayExtensions -es6tostringtag -es7Builtins -ES6Species -args summary -endargs</compile-flags>
       <tags>Slow</tags>
     </default>
   </test>
   <test>
     <default>
       <files>ES6ArrayAPI.js</files>
-      <compile-flags>-ES6 -ES6ObjectLiterals -ES6TypedArrayExtensions -args summary -endargs</compile-flags>
+      <compile-flags>-ES6 -ES6TypedArrayExtensions -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -407,7 +407,7 @@
   <test>
     <default>
       <files>ES6Symbol.js</files>
-      <compile-flags>-ES6ObjectLiterals -es6toprimitive -es6isConcatSpreadable -es6tostringtag -ES6Species -ES6HasInstance -ES6RegExSymbols -args summary -endargs</compile-flags>
+      <compile-flags>-es6toprimitive -es6isConcatSpreadable -es6tostringtag -ES6Species -ES6HasInstance -ES6RegExSymbols -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -585,7 +585,7 @@
   <test>
     <default>
       <files>objlit.js</files>
-      <compile-flags> -ES6 -ES6ObjectLiterals -ES6DefaultArgs -args summary -endargs</compile-flags>
+      <compile-flags> -ES6 -ES6DefaultArgs -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
@@ -680,13 +680,13 @@
   <test>
     <default>
       <files>rest.js</files>
-      <compile-flags>-ES6Rest -ES6ObjectLiterals -ES6Spread -ES6DefaultArgs -args summary -endargs</compile-flags>
+      <compile-flags>-ES6Rest -ES6Spread -ES6DefaultArgs -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>
     <default>
       <files>rest.js</files>
-      <compile-flags>-ES6Rest -ES6ObjectLiterals -ES6Spread -ES6DefaultArgs -force:deferparse -args summary -endargs</compile-flags>
+      <compile-flags>-ES6Rest -ES6Spread -ES6DefaultArgs -force:deferparse -args summary -endargs</compile-flags>
     </default>
   </test>
   <test>

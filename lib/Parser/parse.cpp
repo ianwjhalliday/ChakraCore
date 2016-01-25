@@ -3113,10 +3113,6 @@ ParseNodePtr Parser::ParseMemberGetSet(OpCode nop, LPCOLESTR* ppNameHint)
 
     case tkLBrack:
         // Computed property name: get|set [expr] () {  }
-        if (!m_scriptContext->GetConfig()->IsES6ObjectLiteralsEnabled())
-        {
-            Error(ERRnoMemberIdent);
-        }
         LPCOLESTR emptyHint = nullptr;
         ulong offset = 0;
         ParseComputedName<buildAST>(&pnodeName, &emptyHint, ppNameHint, &offset);
@@ -3289,11 +3285,6 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, ulong* pNameHintLength
 
         case tkLBrack:
             // Computed property name: [expr] : value
-            if (!m_scriptContext->GetConfig()->IsES6ObjectLiteralsEnabled())
-            {
-                Error(ERRnoMemberIdent);
-            }
-
             ParseComputedName<buildAST>(&pnodeName, &pNameHint, &pFullNameHint, &fullNameHintLength, &shortNameOffset);
 
             isComputedName = true;
@@ -3378,7 +3369,7 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, ulong* pNameHintLength
                 }
             }
         }
-        else if (m_token.tk == tkLParen && m_scriptContext->GetConfig()->IsES6ObjectLiteralsEnabled())
+        else if (m_token.tk == tkLParen)
         {
             if (isObjectPattern)
             {
@@ -3455,7 +3446,7 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, ulong* pNameHintLength
                     }
                 }
             }
-            else if ((m_token.tk == tkRCurly || m_token.tk == tkComma || (isObjectPattern && m_token.tk == tkAsg)) && m_scriptContext->GetConfig()->IsES6ObjectLiteralsEnabled())
+            else if (m_token.tk == tkRCurly || m_token.tk == tkComma || (isObjectPattern && m_token.tk == tkAsg))
             {
                 // Shorthand {foo} -> {foo:foo} syntax.
                 // {foo = <initializer>} supported only when on object pattern rules are being applied
@@ -6077,7 +6068,7 @@ ParseNodePtr Parser::ParseClassDecl(BOOL isDeclaration, LPCOLESTR pNameHint, ulo
         }
 
 
-        if (m_token.tk == tkLBrack && m_scriptContext->GetConfig()->IsES6ObjectLiteralsEnabled())
+        if (m_token.tk == tkLBrack)
         {
             // Computed member name: [expr] () { }
             LPCOLESTR emptyHint = nullptr;
@@ -6162,7 +6153,7 @@ ParseNodePtr Parser::ParseClassDecl(BOOL isDeclaration, LPCOLESTR pNameHint, ulo
             {
                 bool isGetter = (memberPid == wellKnownPropertyPids.getter);
 
-                if (m_token.tk == tkLBrack && m_scriptContext->GetConfig()->IsES6ObjectLiteralsEnabled())
+                if (m_token.tk == tkLBrack)
                 {
                     // Computed get/set member name: get|set [expr] () { }
                     LPCOLESTR emptyHint = nullptr;

@@ -2035,7 +2035,7 @@ void ByteCodeGenerator::InvalidateCachedOuterScopes(FuncInfo *funcInfo)
 
 void ByteCodeGenerator::LoadThisObject(FuncInfo *funcInfo, bool thisLoadedFromParams)
 {
-    if (this->scriptContext->GetConfig()->IsES6ClassAndExtendsEnabled() && funcInfo->IsClassConstructor())
+    if (funcInfo->IsClassConstructor())
     {
         // Derived class constructors initialize 'this' to be Undecl
         //   - we'll check this value during a super call and during 'this' access

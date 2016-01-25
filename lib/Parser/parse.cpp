@@ -2232,7 +2232,7 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
         ichMin = m_pscan->IchMinTok();
         m_pscan->Scan();
 
-        if (m_token.tk == tkDot && m_scriptContext->GetConfig()->IsES6ClassAndExtendsEnabled())
+        if (m_token.tk == tkDot)
         {
             pnode = ParseMetaProperty<buildAST>(tkNEW, ichMin, &fCanAssign);
 
@@ -2341,14 +2341,7 @@ LFunction :
 
     case tkCLASS:
         fAllowCall = FALSE;
-        if (m_scriptContext->GetConfig()->IsES6ClassAndExtendsEnabled())
-        {
-            pnode = ParseClassDecl<buildAST>(FALSE, pNameHint, pHintLength, pShortNameOffset);
-        }
-        else
-        {
-            goto LUnknown;
-        }
+        pnode = ParseClassDecl<buildAST>(FALSE, pNameHint, pHintLength, pShortNameOffset);
         fCanAssign = FALSE;
         break;
 
@@ -2359,14 +2352,7 @@ LFunction :
         break;
 
     case tkSUPER:
-        if (m_scriptContext->GetConfig()->IsES6ClassAndExtendsEnabled())
-        {
-            pnode = ParseSuper<buildAST>(pnode, !!fAllowCall);
-        }
-        else
-        {
-            goto LUnknown;
-        }
+        pnode = ParseSuper<buildAST>(pnode, !!fAllowCall);
         break;
 
     case tkCASE:
@@ -8275,14 +8261,7 @@ LFunctionStatement:
     }
 
     case tkCLASS:
-        if (m_scriptContext->GetConfig()->IsES6ClassAndExtendsEnabled())
-        {
-            pnode = ParseClassDecl<buildAST>(TRUE, nullptr, nullptr, nullptr);
-        }
-        else
-        {
-            goto LDefaultToken;
-        }
+        pnode = ParseClassDecl<buildAST>(TRUE, nullptr, nullptr, nullptr);
         break;
 
     case tkID:

@@ -474,7 +474,6 @@ PHASE(All)
 // ES6 sub-feature gate - to enable-disable ES6 sub-feature when ES6 flag is enabled
 #define DEFAULT_CONFIG_ES6Species              (true)
 #define DEFAULT_CONFIG_ES6AsyncAwait           (false)
-#define DEFAULT_CONFIG_ES6Classes              (true)
 #define DEFAULT_CONFIG_ES6DateParseFix         (true)
 #define DEFAULT_CONFIG_ES6DefaultArgs          (false)
 #define DEFAULT_CONFIG_ES6Destructuring        (true)
@@ -848,7 +847,6 @@ FLAGNRC(Boolean, ES6Experimental           , "Enable all experimental features",
 
 FLAGPR           (Boolean, ES6, ES6Species             , "Enable ES6 '@@species' properties and built-in behaviors" , DEFAULT_CONFIG_ES6Species)
 FLAGPR_REGOVR_EXP(Boolean, ES6, ES7AsyncAwait          , "Enable ES7 'async' and 'await' keywords"                  , DEFAULT_CONFIG_ES6AsyncAwait)
-FLAGPR           (Boolean, ES6, ES6Classes             , "Enable ES6 'class' and 'extends' keywords"                , DEFAULT_CONFIG_ES6Classes)
 FLAGPR           (Boolean, ES6, ES6DateParseFix        , "Enable ES6 Date.parse fixes"                              , DEFAULT_CONFIG_ES6DateParseFix)
 FLAGPR_REGOVR_EXP(Boolean, ES6, ES6DefaultArgs         , "Enable ES6 Default Arguments"                             , DEFAULT_CONFIG_ES6DefaultArgs)
 FLAGPR           (Boolean, ES6, ES6Destructuring       , "Enable ES6 Destructuring"                                 , DEFAULT_CONFIG_ES6Destructuring)

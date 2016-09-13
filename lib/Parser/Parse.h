@@ -210,12 +210,8 @@ class Parser
     typedef Scanner<NotNullTerminatedUTF8EncodingPolicy> Scanner_t;
 
 public:
-#if DEBUG
-    Parser(Js::ScriptContext* scriptContext, BOOL strictMode = FALSE, PageAllocator *alloc = nullptr, bool isBackground = false, size_t size = sizeof(Parser));
-#else
     Parser(Js::ScriptContext* scriptContext, BOOL strictMode = FALSE, PageAllocator *alloc = nullptr, bool isBackground = false);
-#endif
-    ~Parser(void);
+    ~Parser();
 
     Js::ScriptContext* GetScriptContext() const { return m_scriptContext; }
     void ReleaseTemporaryGuestArena();
@@ -656,16 +652,6 @@ protected:
 public:
     WellKnownPropertyPids* names(){ return &wellKnownPropertyPids; }
 
-    IdentPtr CreatePid(__in_ecount(len) LPCOLESTR name, charcount_t len)
-    {
-        return this->GetHashTbl()->PidHashNameLen(name, len);
-    }
-
-    bool KnownIdent(__in_ecount(len) LPCOLESTR name, charcount_t len)
-    {
-        return this->GetHashTbl()->Contains(name, len);
-    }
-
     template <typename THandler>
     static void ForEachItemRefInList(ParseNodePtr *list, THandler handler)
     {
@@ -837,7 +823,6 @@ private:
     void BindPidRefsInScope(IdentPtr pid, Symbol *sym, int blockId, uint maxBlockId = (uint)-1);
     void MarkEscapingRef(ParseNodePtr pnode, IdentToken *pToken);
     void SetNestedFuncEscapes() const;
-    void SetSymHasNonLocalReference(Symbol *sym);
     void PushScope(Scope *scope);
     void PopScope(Scope *scope);
 
@@ -859,11 +844,6 @@ private:
         MemberTypeMethod       = 1 << 3, // { foo() {} }
         MemberTypeIdentifier   = 1 << 4  // { foo } (shorthand for { foo: foo })
     };
-
-    // Used to map JavaScript object member name to member type.
-    typedef JsUtil::BaseDictionary<WCHAR*, MemberType, ArenaAllocator, PrimeSizePolicy> MemberNameToTypeMap;
-
-    static MemberNameToTypeMap* CreateMemberNameMap(ArenaAllocator* pAllocator);
 
     template<bool buildAST> void ParseComputedName(ParseNodePtr* ppnodeName, LPCOLESTR* ppNameHint, LPCOLESTR* ppFullNameHint = nullptr, uint32 *pNameLength = nullptr, uint32 *pShortNameOffset = nullptr);
     template<bool buildAST> ParseNodeBin * ParseMemberGetSet(OpCode nop, LPCOLESTR* ppNameHint,size_t iecpMin, charcount_t ichMin);
@@ -1066,7 +1046,6 @@ public:
     void ValidateFormals();
 
     bool IsStrictMode() const;
-    BOOL ExpectingExternalSource();
 
     IdentPtr GetArgumentsPid() const { return wellKnownPropertyPids.arguments; }
     IdentPtr GetEvalPid() const { return wellKnownPropertyPids.eval; }
@@ -1129,7 +1108,6 @@ private:
     BOOL m_fUseStrictMode; // ES5 Use Strict mode. In AST mode this is a global flag; in NoAST mode it is pushed and popped.
     bool m_InAsmMode; // Currently parsing Asm.Js module
     bool m_deferAsmJs;
-    BOOL m_fExpectExternalSource;
     BOOL m_deferringAST;
     BOOL m_stoppedDeferredParse;
 

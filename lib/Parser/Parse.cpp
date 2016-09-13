@@ -41,11 +41,7 @@ struct BlockInfoStack
     BlockInfoStack *pBlockInfoFunction;     // nearest function's BlockInfoStack (if pnodeBlock is a function, this points to itself)
 };
 
-#if DEBUG
-Parser::Parser(Js::ScriptContext* scriptContext, BOOL strictMode, PageAllocator *alloc, bool isBackground, size_t size)
-#else
 Parser::Parser(Js::ScriptContext* scriptContext, BOOL strictMode, PageAllocator *alloc, bool isBackground)
-#endif
     : m_nodeAllocator(_u("Parser"), alloc ? alloc : scriptContext->GetThreadContext()->GetPageAllocator(), Parser::OutOfMemory),
     m_cactIdentToNodeLookup(0),
     m_grfscr(fscrNil),
@@ -119,18 +115,16 @@ Parser::Parser(Js::ScriptContext* scriptContext, BOOL strictMode, PageAllocator 
     m_fUseStrictMode(strictMode),
     m_InAsmMode(false),
     m_deferAsmJs(true),
-    m_fExpectExternalSource(FALSE),
     m_deferringAST(FALSE),
     m_stoppedDeferredParse(FALSE)
 {
-    AssertMsg(size == sizeof(Parser), "verify conditionals affecting the size of Parser agree");
     Assert(scriptContext != nullptr);
 
     // init PID members
     InitPids();
 }
 
-Parser::~Parser(void)
+Parser::~Parser()
 {
     this->ReleaseTemporaryGuestArena();
 
@@ -3869,13 +3863,6 @@ BOOL Parser::NodeIsSuperName(ParseNodePtr pnode)
     return pnode->nop == knopName && (pnode->AsParseNodeName()->pid == wellKnownPropertyPids._superConstructor);
 }
 
-BOOL Parser::NodeEqualsName(ParseNodePtr pnode, LPCOLESTR sz, uint32 cch)
-{
-    return pnode->nop == knopName &&
-        pnode->AsParseNodeName()->pid->Cch() == cch &&
-        !wmemcmp(pnode->AsParseNodeName()->pid->Psz(), sz, cch);
-}
-
 BOOL Parser::NodeIsIdent(ParseNodePtr pnode, IdentPtr pid)
 {
     for (;;)
@@ -4562,12 +4549,6 @@ ParseNodePtr Parser::ParseArrayList(bool *pArrayOfTaggedInts, bool *pArrayOfInts
     }
     this->m_arrayDepth--;
     return pnodeList;
-}
-
-Parser::MemberNameToTypeMap* Parser::CreateMemberNameMap(ArenaAllocator* pAllocator)
-{
-    Assert(pAllocator);
-    return Anew(pAllocator, MemberNameToTypeMap, pAllocator, 5);
 }
 
 template<bool buildAST> void Parser::ParseComputedName(ParseNodePtr* ppnodeName, LPCOLESTR* ppNameHint, LPCOLESTR* ppFullNameHint, uint32 *pNameLength, uint32 *pShortNameOffset)
@@ -12478,11 +12459,6 @@ bool Parser::IsStrictMode() const
         (m_currentNodeFunc != nullptr && m_currentNodeFunc->GetStrictMode()));
 }
 
-BOOL Parser::ExpectingExternalSource()
-{
-    return m_fExpectExternalSource;
-}
-
 Symbol *ParseNodeFnc::GetFuncSymbol()
 {
     if (pnodeName)
@@ -12561,8 +12537,6 @@ bool ParseNodeBlock::HasBlockScopedContent() const
 
     return false;
 }
-
-class ByteCodeGenerator;
 
 // Copy AST; this works mostly on expressions for now
 ParseNode* Parser::CopyPnode(ParseNode *pnode) {
@@ -13558,7 +13532,6 @@ void Parser::RestoreContext(ParseContext *const parseContext)
     m_fUseStrictMode = parseContext->strictMode;
 }
 
-class ByteCodeGenerator;
 #if DBG_DUMP
 
 #define INDENT_SIZE 2

@@ -84,17 +84,6 @@ struct PnTri
     ParseNodePtr pnode3;
 };
 
-struct PnSlot
-{
-  uint slotIndex;
-};
-
-struct PnUniSlot : PnUni
-{
-  uint slotIndex;
-  uint staticFuncId;
-};
-
 struct PnInt
 {
     int32 lw;
@@ -517,12 +506,6 @@ struct PnIf : PnStmt
     ParseNodePtr pnodeFalse;
 };
 
-struct PnHelperCall2 {
-  ParseNodePtr pnodeArg1;
-  ParseNodePtr pnodeArg2;
-  int helperId;
-};
-
 struct PnForInOrForOf : PnLoop
 {
     ParseNodePtr pnodeObj;
@@ -625,7 +608,6 @@ struct ParseNode
         PnFnc           sxFnc;          // function declaration
         PnFor           sxFor;          // for loop
         PnForInOrForOf  sxForInOrForOf; // for-in loop
-        PnHelperCall2   sxHelperCall2;  // call to helper
         PnIf            sxIf;           // if
         PnInt           sxInt;          // integer constant
         PnJump          sxJump;         // break and continue
@@ -762,7 +744,6 @@ const int kcbPnFnc          = kcbPnNone + sizeof(PnFnc);
 const int kcbPnFor          = kcbPnNone + sizeof(PnFor);
 const int kcbPnForIn        = kcbPnNone + sizeof(PnForInOrForOf);
 const int kcbPnForOf        = kcbPnNone + sizeof(PnForInOrForOf);
-const int kcbPnHelperCall3  = kcbPnNone + sizeof(PnHelperCall2);
 const int kcbPnIf           = kcbPnNone + sizeof(PnIf);
 const int kcbPnInt          = kcbPnNone + sizeof(PnInt);
 const int kcbPnJump         = kcbPnNone + sizeof(PnJump);
@@ -770,7 +751,6 @@ const int kcbPnModule       = kcbPnNone + sizeof(PnModule);
 const int kcbPnPid          = kcbPnNone + sizeof(PnPid);
 const int kcbPnProg         = kcbPnNone + sizeof(PnProg);
 const int kcbPnReturn       = kcbPnNone + sizeof(PnReturn);
-const int kcbPnSlot         = kcbPnNone + sizeof(PnSlot);
 const int kcbPnStrTemplate  = kcbPnNone + sizeof(PnStrTemplate);
 const int kcbPnSwitch       = kcbPnNone + sizeof(PnSwitch);
 const int kcbPnTri          = kcbPnNone + sizeof(PnTri);
@@ -778,7 +758,6 @@ const int kcbPnTry          = kcbPnNone + sizeof(PnTry);
 const int kcbPnTryCatch     = kcbPnNone + sizeof(PnTryCatch);
 const int kcbPnTryFinally   = kcbPnNone + sizeof(PnTryFinally);
 const int kcbPnUni          = kcbPnNone + sizeof(PnUni);
-const int kcbPnUniSlot      = kcbPnNone + sizeof(PnUniSlot);
 const int kcbPnVar          = kcbPnNone + sizeof(PnVar);
 const int kcbPnWhile        = kcbPnNone + sizeof(PnWhile);
 const int kcbPnWith         = kcbPnNone + sizeof(PnWith);

@@ -35,60 +35,6 @@ int CountNewlines(LPCOLESTR psz, int cch)
     return cln;
 }
 
-template< typename CharT >
-struct AorW
-{
-};
-
-// Specialization for UTF8Char
-template<>
-struct AorW< UTF8Char >
-{
-    // Expressing the args as "arrays of size N" ensures that the both args
-    // are the same length. If not, we get a compile time error.
-    template< size_t N >
-    static const UTF8Char* Choose( const char (&a)[N], const char16 (&w)[N] )
-    {
-        // The reinterpret_cast is necessary to go from signed to unsigned char
-        return reinterpret_cast< const UTF8Char* >(a);
-    }
-
-    template< size_t N >
-    static const bool Test(const char (&a)[N], const char16 (&w)[N], LPCUTF8 value)
-    {
-        return 0 == memcmp(a, value, (N - 1) * sizeof(utf8char_t));
-    }
-
-    template< size_t N >
-    static const bool Test(const char (&a)[N], const char16 (&w)[N], LPCUTF8 start, LPCUTF8 end)
-    {
-        return (end - start == N - 1) && (0 == memcmp(a, start, (N - 1) * sizeof(utf8char_t)));
-    }
-};
-
-// Specialization for OLECHAR
-template<>
-struct AorW< OLECHAR >
-{
-    template< size_t N >
-    static const char16* Choose( const char (&a)[N], const char16 (&w)[N] )
-    {
-        return w;
-    }
-
-    template < size_t N >
-    static bool Test(const char (&a)[N], const char16 (&w)[N], const char16 *value)
-    {
-        return 0 == memcmp(w, value, (N - 1) * sizeof(char16));
-    }
-
-    template < size_t N >
-    static bool Test(const char (&a)[N], const char16 (&w)[N], const char16 *start, const char16 *end)
-    {
-        return (end - start == N - 1) && (0 == memcmp(w, start, (N - 1) * sizeof(char16)));
-    }
-};
-
 BOOL Token::IsKeyword() const
 {
     // keywords (but not future reserved words)

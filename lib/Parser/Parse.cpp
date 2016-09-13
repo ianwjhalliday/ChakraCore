@@ -65,16 +65,11 @@ struct BlockInfoStack
     BlockInfoStack *pBlockInfoFunction;     // nearest function's BlockInfoStack (if pnodeBlock is a function, this points to itself)
 };
 
-#if DEBUG
-Parser::Parser(Js::ScriptContext* scriptContext, BOOL strictMode, PageAllocator *alloc, bool isBackground, size_t size)
-#else
 Parser::Parser(Js::ScriptContext* scriptContext, BOOL strictMode, PageAllocator *alloc, bool isBackground)
-#endif
     : m_nodeAllocator(_u("Parser"), alloc ? alloc : scriptContext->GetThreadContext()->GetPageAllocator(), Parser::OutOfMemory),
     // use the GuestArena directly for keeping the RegexPattern* alive during byte code generation
     m_registeredRegexPatterns(scriptContext->GetGuestArena())
 {
-    AssertMsg(size == sizeof(Parser), "verify conditionals affecting the size of Parser agree");
     Assert(scriptContext != nullptr);
     m_isInBackground = isBackground;
     m_phtbl = nullptr;
@@ -117,7 +112,6 @@ Parser::Parser(Js::ScriptContext* scriptContext, BOOL strictMode, PageAllocator 
     m_InAsmMode = false;
     m_deferAsmJs = true;
     m_scopeCountNoAst = 0;
-    m_fExpectExternalSource = 0;
 
     m_parseType = ParseType_Upfront;
 
@@ -126,7 +120,7 @@ Parser::Parser(Js::ScriptContext* scriptContext, BOOL strictMode, PageAllocator 
     m_parsingSuperRestrictionState = ParsingSuperRestrictionState_SuperDisallowed;
 }
 
-Parser::~Parser(void)
+Parser::~Parser()
 {
     if (m_scriptContext == nullptr || m_scriptContext->GetGuestArena() == nullptr)
     {
@@ -1197,23 +1191,6 @@ Parser::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,char
     pnode->ichMin = ichMin;
     pnode->ichLim = ichLim;
 
-    return pnode;
-}
-
-ParseNodePtr Parser::CreateStrNode(IdentPtr pid)
-{
-    Assert(!this->m_deferringAST);
-
-    ParseNodePtr pnode = CreateNode(knopStr);
-    pnode->sxPid.pid=pid;
-    pnode->grfpn |= PNodeFlags::fpnCanFlattenConcatExpr;
-    return pnode;
-}
-
-ParseNodePtr Parser::CreateIntNode(int32 lw)
-{
-    ParseNodePtr pnode = CreateNode(knopInt);
-    pnode->sxInt.lw = lw;
     return pnode;
 }
 
@@ -3262,13 +3239,6 @@ BOOL Parser::NodeIsEvalName(ParseNodePtr pnode)
     return pnode->nop == knopName && (pnode->sxPid.pid == wellKnownPropertyPids.eval);
 }
 
-BOOL Parser::NodeEqualsName(ParseNodePtr pnode, LPCOLESTR sz, uint32 cch)
-{
-    return pnode->nop == knopName &&
-        pnode->sxPid.pid->Cch() == cch &&
-        !wmemcmp(pnode->sxPid.pid->Psz(), sz, cch);
-}
-
 BOOL Parser::NodeIsIdent(ParseNodePtr pnode, IdentPtr pid)
 {
     for (;;)
@@ -3843,12 +3813,6 @@ ParseNodePtr Parser::ParseArrayList(bool *pArrayOfTaggedInts, bool *pArrayOfInts
     }
     this->m_arrayDepth--;
     return pnodeList;
-}
-
-Parser::MemberNameToTypeMap* Parser::CreateMemberNameMap(ArenaAllocator* pAllocator)
-{
-    Assert(pAllocator);
-    return Anew(pAllocator, MemberNameToTypeMap, pAllocator, 5);
 }
 
 template<bool buildAST> void Parser::ParseComputedName(ParseNodePtr* ppnodeName, LPCOLESTR* ppNameHint, LPCOLESTR* ppFullNameHint, uint32 *pNameLength, uint32 *pShortNameOffset)
@@ -7547,29 +7511,6 @@ ParseNodePtr Parser::ParseStringTemplateDecl(ParseNodePtr pnodeTagFnc)
     return pnodeStringTemplate;
 }
 
-ParseNodePtr Parser::CreateAsyncSpawnGenerator()
-{
-    ParseNodePtr pnodeFncGenerator = nullptr;
-
-    pnodeFncGenerator = CreateDummyFuncNode(false);
-    pnodeFncGenerator->sxFnc.functionId = (*m_nextFunctionId)++;
-
-    pnodeFncGenerator->sxFnc.cbMin = m_pscan->IecpMinTok();
-    pnodeFncGenerator->sxFnc.cbLim = m_pscan->IecpLimTok();
-    pnodeFncGenerator->sxFnc.lineNumber = m_pscan->LineCur();
-    pnodeFncGenerator->sxFnc.columnNumber = CalculateFunctionColumnNumber();
-    pnodeFncGenerator->sxFnc.SetNested(m_currentNodeFunc != nullptr);
-    pnodeFncGenerator->sxFnc.SetStrictMode(IsStrictMode());
-
-    pnodeFncGenerator->sxFnc.SetIsGenerator();
-    pnodeFncGenerator->sxFnc.SetIsLambda();
-    pnodeFncGenerator->sxFnc.scope = nullptr;
-
-    AppendFunctionToScopeList(false, pnodeFncGenerator);
-
-    return pnodeFncGenerator;
-}
-
 LPCOLESTR Parser::FormatPropertyString(LPCOLESTR propertyString, ParseNodePtr pNode, uint32 *fullNameHintLength, uint32 *pShortNameOffset)
 {
     // propertyString could be null, such as 'this.foo' =
@@ -8929,7 +8870,7 @@ ParseNodePtr Parser::ParseCatch()
     ParseNodePtr pnodeCatchScope = nullptr;
     StmtNest stmt;
     IdentPtr pidCatch = nullptr;
-    //while (tkCATCH == m_token.tk)
+
     if (tkCATCH == m_token.tk)
     {
         charcount_t ichMin;
@@ -11284,11 +11225,6 @@ bool Parser::IsStrictMode() const
            (m_currentNodeFunc != nullptr && m_currentNodeFunc->sxFnc.GetStrictMode()));
 }
 
-BOOL Parser::ExpectingExternalSource()
-{
-    return m_fExpectExternalSource;
-}
-
 Symbol *PnFnc::GetFuncSymbol()
 {
     if (pnodeName &&
@@ -11457,8 +11393,6 @@ bool PnBlock::HasBlockScopedContent() const
 
     return false;
 }
-
-class ByteCodeGenerator;
 
 // Copy AST; this works mostly on expressions for now
 ParseNode* Parser::CopyPnode(ParseNode *pnode) {
@@ -12422,7 +12356,6 @@ void Parser::RestoreContext(ParseContext *const parseContext)
     m_fUseStrictMode = parseContext->strictMode;
 }
 
-class ByteCodeGenerator;
 #if DBG_DUMP
 
 #define INDENT_SIZE 2

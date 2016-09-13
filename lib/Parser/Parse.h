@@ -123,12 +123,8 @@ private:
 
 
 public:
-#if DEBUG
-    Parser(Js::ScriptContext* scriptContext, BOOL strictMode = FALSE, PageAllocator *alloc = nullptr, bool isBackground = false, size_t size = sizeof(Parser));
-#else
     Parser(Js::ScriptContext* scriptContext, BOOL strictMode = FALSE, PageAllocator *alloc = nullptr, bool isBackground = false);
-#endif
-    ~Parser(void);
+    ~Parser();
 
     Js::ScriptContext* GetScriptContext() const { return m_scriptContext; }
     void ClearScriptContext() { m_scriptContext = nullptr; }
@@ -218,9 +214,6 @@ private:
     __declspec(noreturn) void Error(HRESULT hr, charcount_t ichMin, charcount_t ichLim);
     __declspec(noreturn) static void OutOfMemory();
 
-    void GenerateCode(ParseNodePtr pnode, void *pvUser, int32 cbUser,
-        LPCOLESTR pszSrc, int32 cchSrc, LPCOLESTR pszTitle);
-
     void EnsureStackAvailable();
 
     void IdentifierExpectedError(const Token& token);
@@ -289,8 +282,6 @@ public:
 
     ParseNodePtr CreateNode(OpCode nop, charcount_t ichMin);
     ParseNodePtr CreateTriNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, ParseNodePtr pnode3);
-    ParseNodePtr CreateIntNode(int32 lw);
-    ParseNodePtr CreateStrNode(IdentPtr pid);
 
     ParseNodePtr CreateUniNode(OpCode nop, ParseNodePtr pnodeOp);
     ParseNodePtr CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2);
@@ -563,20 +554,9 @@ protected:
     void CheckForDuplicateExportEntry(ModuleImportOrExportEntryList* exportEntryList, IdentPtr exportName);
 
     ParseNodePtr CreateModuleImportDeclNode(IdentPtr localName);
-    void MarkIdentifierReferenceIsModuleExport(IdentPtr localName);
 
 public:
     WellKnownPropertyPids* names(){ return &wellKnownPropertyPids; }
-
-    IdentPtr CreatePid(__in_ecount(len) LPCOLESTR name, charcount_t len)
-    {
-        return m_phtbl->PidHashNameLen(name, len);
-    }
-
-    bool KnownIdent(__in_ecount(len) LPCOLESTR name, charcount_t len)
-    {
-        return m_phtbl->Contains(name, len);
-    }
 
     template <typename THandler>
     static void ForEachItemRefInList(ParseNodePtr *list, THandler handler)
@@ -732,7 +712,6 @@ private:
     void BindPidRefsInScope(IdentPtr pid, Symbol *sym, int blockId, uint maxBlockId = (uint)-1);
     void MarkEscapingRef(ParseNodePtr pnode, IdentToken *pToken);
     void SetNestedFuncEscapes() const;
-    void SetSymHasNonLocalReference(Symbol *sym);
     void PushScope(Scope *scope);
     void PopScope(Scope *scope);
 
@@ -752,11 +731,6 @@ private:
         MemberTypeMethod       = 1 << 3, // { foo() {} }
         MemberTypeIdentifier   = 1 << 4  // { foo } (shorthand for { foo: foo })
     };
-
-    // Used to map JavaScript object member name to member type.
-    typedef JsUtil::BaseDictionary<WCHAR*, MemberType, ArenaAllocator, PrimeSizePolicy> MemberNameToTypeMap;
-
-    static MemberNameToTypeMap* CreateMemberNameMap(ArenaAllocator* pAllocator);
 
     template<bool buildAST> void ParseComputedName(ParseNodePtr* ppnodeName, LPCOLESTR* ppNameHint, LPCOLESTR* ppFullNameHint = nullptr, uint32 *pNameLength = nullptr, uint32 *pShortNameOffset = nullptr);
     template<bool buildAST> ParseNodePtr ParseMemberGetSet(OpCode nop, LPCOLESTR* ppNameHint);
@@ -953,7 +927,6 @@ public:
     void ValidateFormals();
 
     bool IsStrictMode() const;
-    BOOL ExpectingExternalSource();
 
     IdentPtr GetArgumentsPid() const { return wellKnownPropertyPids.arguments; }
     IdentPtr GetEvalPid() const { return wellKnownPropertyPids.eval; }
@@ -1021,7 +994,6 @@ private:
     BOOL m_fUseStrictMode; // ES5 Use Strict mode. In AST mode this is a global flag; in NoAST mode it is pushed and popped.
     bool m_InAsmMode; // Currently parsing Asm.Js module
     bool m_deferAsmJs;
-    BOOL m_fExpectExternalSource;
     BOOL m_deferringAST;
     BOOL m_stoppedDeferredParse;
 
@@ -1072,8 +1044,6 @@ private:
 
 public:
     charcount_t GetSourceIchLim() { return m_sourceLim; }
-    static BOOL NodeEqualsName(ParseNodePtr pnode, LPCOLESTR sz, uint32 cch);
-
 };
 
 #define PTNODE(nop,sn,pc,nk,ok,json) \

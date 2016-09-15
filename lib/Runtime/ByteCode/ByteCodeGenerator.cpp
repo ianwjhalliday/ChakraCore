@@ -3837,7 +3837,7 @@ ParseNode* ConstructInvertedStatement(ParseNode* stmt, ByteCodeGenerator* byteCo
             rhs = stmt->sxVar.pnodeInit;
             }
         ArenaAllocator* alloc = byteCodeGenerator->GetAllocator();
-        ParseNode* loopInvar = byteCodeGenerator->GetParser()->CreateTempNode(rhs);
+        ParseNode* loopInvar = byteCodeGenerator->GetParser()->Ast().CreateTempNode(rhs);
         loopInvar->location = funcInfo->NextVarRegister();
 
             // Can't use a temp register here because the inversion happens at the parse tree level without generating
@@ -3852,17 +3852,17 @@ ParseNode* ConstructInvertedStatement(ParseNode* stmt, ByteCodeGenerator* byteCo
             }
         else
         {
-            ParseNode* listNode = Parser::StaticCreateBinNode(knopList, nullptr, nullptr, alloc);
+            ParseNode* listNode = AstFactory::StaticCreateBinNode(knopList, nullptr, nullptr, alloc);
             (*outerStmtRef)->sxBin.pnode2 = listNode;
             listNode->sxBin.pnode1 = loopInvar;
             *outerStmtRef = listNode;
             }
 
-        ParseNode* tempName = byteCodeGenerator->GetParser()->CreateTempRef(loopInvar);
+        ParseNode* tempName = byteCodeGenerator->GetParser()->Ast().CreateTempRef(loopInvar);
 
         if (lhs != nullptr)
         {
-            cStmt = Parser::StaticCreateBinNode(knopAsg, lhs, tempName, alloc);
+            cStmt = AstFactory::StaticCreateBinNode(knopAsg, lhs, tempName, alloc);
             }
         else
         {
@@ -3885,29 +3885,29 @@ ParseNode* ConstructInvertedStatement(ParseNode* stmt, ByteCodeGenerator* byteCo
 ParseNode* ConstructInvertedLoop(ParseNode* innerLoop, ParseNode* outerLoop, ByteCodeGenerator* byteCodeGenerator, FuncInfo* funcInfo)
 {
     ArenaAllocator* alloc = byteCodeGenerator->GetAllocator();
-    ParseNode* outerLoopC = Parser::StaticCreateNodeT<knopFor>(alloc);
+    ParseNode* outerLoopC = AstFactory::StaticCreateNodeT<knopFor>(alloc);
     outerLoopC->sxFor.pnodeInit = innerLoop->sxFor.pnodeInit;
     outerLoopC->sxFor.pnodeCond = innerLoop->sxFor.pnodeCond;
     outerLoopC->sxFor.pnodeIncr = innerLoop->sxFor.pnodeIncr;
     outerLoopC->sxFor.pnodeBlock = innerLoop->sxFor.pnodeBlock;
     outerLoopC->sxFor.pnodeInverted = nullptr;
 
-    ParseNode* innerLoopC = Parser::StaticCreateNodeT<knopFor>(alloc);
+    ParseNode* innerLoopC = AstFactory::StaticCreateNodeT<knopFor>(alloc);
     innerLoopC->sxFor.pnodeInit = outerLoop->sxFor.pnodeInit;
     innerLoopC->sxFor.pnodeCond = outerLoop->sxFor.pnodeCond;
     innerLoopC->sxFor.pnodeIncr = outerLoop->sxFor.pnodeIncr;
     innerLoopC->sxFor.pnodeBlock = outerLoop->sxFor.pnodeBlock;
     innerLoopC->sxFor.pnodeInverted = nullptr;
 
-    ParseNode* innerBod = Parser::StaticCreateBlockNode(alloc);
+    ParseNode* innerBod = AstFactory::StaticCreateBlockNode(alloc);
     innerLoopC->sxFor.pnodeBody = innerBod;
     innerBod->sxBlock.scope = innerLoop->sxFor.pnodeBody->sxBlock.scope;
 
-    ParseNode* outerBod = Parser::StaticCreateBlockNode(alloc);
+    ParseNode* outerBod = AstFactory::StaticCreateBlockNode(alloc);
     outerLoopC->sxFor.pnodeBody = outerBod;
     outerBod->sxBlock.scope = outerLoop->sxFor.pnodeBody->sxBlock.scope;
 
-    ParseNode* listNode = Parser::StaticCreateBinNode(knopList, nullptr, nullptr, alloc);
+    ParseNode* listNode = AstFactory::StaticCreateBinNode(knopList, nullptr, nullptr, alloc);
     outerBod->sxBlock.pnodeStmt = listNode;
 
     ParseNode* innerBodOriginal = innerLoop->sxFor.pnodeBody;
@@ -3920,11 +3920,11 @@ ParseNode* ConstructInvertedLoop(ParseNode* innerLoop, ParseNode* outerLoop, Byt
             ParseNode* invertedItem = ConstructInvertedStatement(origStmt->sxBin.pnode1, byteCodeGenerator, funcInfo, &listNode);
             if (invertedStmt != nullptr)
             {
-                invertedStmt = invertedStmt->sxBin.pnode2 = byteCodeGenerator->GetParser()->CreateBinNode(knopList, invertedItem, nullptr);
+                invertedStmt = invertedStmt->sxBin.pnode2 = byteCodeGenerator->GetParser()->Ast().CreateBinNode(knopList, invertedItem, nullptr);
             }
             else
             {
-                invertedStmt = innerBod->sxBlock.pnodeStmt = byteCodeGenerator->GetParser()->CreateBinNode(knopList, invertedItem, nullptr);
+                invertedStmt = innerBod->sxBlock.pnodeStmt = byteCodeGenerator->GetParser()->Ast().CreateBinNode(knopList, invertedItem, nullptr);
             }
             origStmt = origStmt->sxBin.pnode2;
         }
@@ -3938,7 +3938,7 @@ ParseNode* ConstructInvertedLoop(ParseNode* innerLoop, ParseNode* outerLoop, Byt
 
     if (listNode->sxBin.pnode1 == nullptr)
     {
-        listNode->sxBin.pnode1 = byteCodeGenerator->GetParser()->CreateTempNode(nullptr);
+        listNode->sxBin.pnode1 = byteCodeGenerator->GetParser()->Ast().CreateTempNode(nullptr);
     }
 
     listNode->sxBin.pnode2 = innerLoopC;

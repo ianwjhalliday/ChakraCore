@@ -50,6 +50,7 @@ namespace UnifiedRegex {
 #include "Scan.h"
 #include "screrror.h"
 #include "rterror.h"
+#include "AstFactory.h"
 #include "Parse.h"
 
 #include "BackgroundParser.h"

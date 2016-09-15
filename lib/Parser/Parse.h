@@ -103,18 +103,8 @@ namespace Js
 
 class Parser
 {
+    friend class AstFactory;
     typedef Scanner<NotNullTerminatedUTF8EncodingPolicy> Scanner_t;
-
-private:
-    template <OpCode nop> static int GetNodeSize();
-
-    template <OpCode nop> static ParseNodePtr StaticAllocNode(ArenaAllocator * alloc)
-    {
-        ParseNodePtr pnode = (ParseNodePtr)alloc->Alloc(GetNodeSize<nop>());
-        Assert(pnode != nullptr);
-        return pnode;
-    }
-
 
 public:
     Parser(Js::ScriptContext* scriptContext, BOOL strictMode = FALSE, PageAllocator *alloc = nullptr, bool isBackground = false);
@@ -177,6 +167,7 @@ private:
     /***********************************************************************
     Core members.
     ***********************************************************************/
+    AstFactory m_ast;
     ParseNodeAllocator m_nodeAllocator;
     int32        m_cactIdentToNodeLookup;
     uint32       m_grfscr;
@@ -230,67 +221,7 @@ protected:
 
 public:
 
-    // create nodes using arena allocator; used by AST transformation
-    template <OpCode nop>
-    static ParseNodePtr StaticCreateNodeT(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0)
-    {
-        ParseNodePtr pnode = StaticAllocNode<nop>(alloc);
-        InitNode(nop,pnode);
-        // default - may be changed
-        pnode->ichMin = ichMin;
-        pnode->ichLim = ichLim;
-
-        return pnode;
-    }
-
-    static ParseNodePtr StaticCreateBinNode(OpCode nop, ParseNodePtr pnode1,ParseNodePtr pnode2,ArenaAllocator* alloc);
-    static ParseNodePtr StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0, int blockId = -1, PnodeBlockType blockType = PnodeBlockType::Regular);
-    ParseNodePtr CreateNode(OpCode nop, charcount_t ichMin,charcount_t ichLim);
-    ParseNodePtr CreateDummyFuncNode(bool fDeclaration);
-
-
-    ParseNodePtr CreateTriNode(OpCode nop, ParseNodePtr pnode1,
-                               ParseNodePtr pnode2, ParseNodePtr pnode3,
-                               charcount_t ichMin,charcount_t ichLim);
-    ParseNodePtr CreateTempNode(ParseNode* initExpr);
-    ParseNodePtr CreateTempRef(ParseNode* tempNode);
-
-    ParseNodePtr CreateNode(OpCode nop) { return CreateNode(nop, m_pscan? m_pscan->IchMinTok() : 0); }
-    ParseNodePtr CreateDeclNode(OpCode nop, IdentPtr pid, SymbolType symbolType, bool errorOnRedecl = true);
     Symbol*      AddDeclForPid(ParseNodePtr pnode, IdentPtr pid, SymbolType symbolType, bool errorOnRedecl);
-    ParseNodePtr CreateNameNode(IdentPtr pid)
-    {
-        ParseNodePtr pnode = CreateNode(knopName);
-        pnode->sxPid.pid = pid;
-        pnode->sxPid.sym=NULL;
-        pnode->sxPid.symRef=NULL;
-        return pnode;
-    }
-    ParseNodePtr CreateBlockNode(PnodeBlockType blockType = PnodeBlockType::Regular)
-    {
-        ParseNodePtr pnode = CreateNode(knopBlock);
-        InitBlockNode(pnode, m_nextBlockId++, blockType);
-        return pnode;
-    }
-    // Creating parse nodes.
-
-    ParseNodePtr CreateNode(OpCode nop, charcount_t ichMin);
-    ParseNodePtr CreateTriNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, ParseNodePtr pnode3);
-
-    ParseNodePtr CreateUniNode(OpCode nop, ParseNodePtr pnodeOp);
-    ParseNodePtr CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2);
-    ParseNodePtr CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2);
-
-    // Create parse node with token limis
-    template <OpCode nop>
-    ParseNodePtr CreateNodeT(charcount_t ichMin,charcount_t ichLim);
-    ParseNodePtr CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcount_t ichMin,charcount_t ichLim);
-    ParseNodePtr CreateBlockNode(charcount_t ichMin,charcount_t ichLim, PnodeBlockType blockType = PnodeBlockType::Regular);
-    ParseNodePtr CreateNameNode(IdentPtr pid,charcount_t ichMin,charcount_t ichLim);
-    ParseNodePtr CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,
-        charcount_t ichMin,charcount_t ichLim);
-    ParseNodePtr CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,
-        charcount_t ichMin,charcount_t ichLim);
 
     void PrepareScanner(bool fromExternal);
     void PrepareForBackgroundParse();
@@ -303,12 +234,8 @@ public:
     HRESULT ParseFunctionInBackground(ParseNodePtr pnodeFunc, ParseContext *parseContext, bool topLevelDeferred, CompileScriptException *pse);
 
     void AddVarDeclToBlock(ParseNode *pnode);
-    // Add a var declaration. Only use while parsing. Assumes m_ppnodeVar is pointing to the right place already
-    ParseNodePtr CreateVarDeclNode(IdentPtr pid, SymbolType symbolType, bool autoArgumentsObject = false, ParseNodePtr pnodeFnc = NULL, bool checkReDecl = true);
     // Add a var declaration, during parse tree rewriting. Will setup m_ppnodeVar for the given pnodeFnc
     ParseNodePtr AddVarDeclNode(IdentPtr pid, ParseNodePtr pnodeFnc);
-    // Add a 'const' or 'let' declaration.
-    ParseNodePtr CreateBlockScopedDeclNode(IdentPtr pid, OpCode nodeType);
 
     void RegisterRegexPattern(UnifiedRegex::RegexPattern *const regexPattern);
 
@@ -332,16 +259,6 @@ public:
     void CaptureContext(ParseContext *parseContext) const;
     void RestoreContext(ParseContext *const parseContext);
     int GetLastBlockId() const { Assert(m_nextBlockId > 0); return m_nextBlockId - 1; }
-
-private:
-    template <OpCode nop> ParseNodePtr CreateNodeWithScanner();
-    template <OpCode nop> ParseNodePtr CreateNodeWithScanner(charcount_t ichMin);
-    ParseNodePtr CreateStrNodeWithScanner(IdentPtr pid);
-    ParseNodePtr CreateIntNodeWithScanner(int32 lw);
-    ParseNodePtr CreateProgNodeWithScanner(bool isModuleSource);
-
-    static void InitNode(OpCode nop,ParseNodePtr pnode);
-    static void InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType);
 
 private:
     ParseNodePtr m_currentNodeNonLambdaFunc; // current function or NULL
@@ -537,8 +454,6 @@ protected:
     ModuleImportOrExportEntry* AddModuleImportOrExportEntry(ModuleImportOrExportEntryList* importOrExportEntryList, ModuleImportOrExportEntry* importOrExportEntry);
     void AddModuleLocalExportEntry(ParseNodePtr varDeclNode);
     void CheckForDuplicateExportEntry(ModuleImportOrExportEntryList* exportEntryList, IdentPtr exportName);
-
-    ParseNodePtr CreateModuleImportDeclNode(IdentPtr localName);
 
 public:
     WellKnownPropertyPids* names(){ return &wellKnownPropertyPids; }
@@ -810,8 +725,6 @@ private:
     BOOL IsConstantInFunctionCall(ParseNodePtr pnode);
     BOOL IsConstantInArrayLiteral(ParseNodePtr pnode);
 
-    ParseNodePtr CreateParamPatternNode(ParseNodePtr pnode1);
-
     ParseNodePtr ConvertMemberToMemberPattern(ParseNodePtr pnodeMember);
     ParseNodePtr ConvertObjectToObjectPattern(ParseNodePtr pnodeMemberList);
     ParseNodePtr GetRightSideNodeFromPattern(ParseNodePtr pnode);
@@ -890,6 +803,8 @@ public:
         RELEASEPTR(m_pscan);
         RELEASEPTR(m_phtbl);
     }
+
+    AstFactory& Ast() { return m_ast; }
 
 private:
     void TrackAssignment(IdentPtr pidTermId);
@@ -995,7 +910,3 @@ private:
 public:
     charcount_t GetSourceIchLim() { return m_sourceLim; }
 };
-
-#define PTNODE(nop,sn,pc,nk,ok,json) \
-    template<> inline int Parser::GetNodeSize<nop>() { return kcbPn##nk; }
-#include "ptlist.h"

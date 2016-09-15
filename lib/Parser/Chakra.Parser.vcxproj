@@ -37,6 +37,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="$(MSBuildThisFileDirectory)Alloc.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)AstFactory.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)BackgroundParser.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)CaseInsensitive.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)CharClassifier.cpp" />

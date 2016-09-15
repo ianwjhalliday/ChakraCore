@@ -17,7 +17,8 @@ static const int g_mpnopcbNode[] =
 const Js::RegSlot NoRegister = (Js::RegSlot)-1;
 const Js::RegSlot OneByteRegister = (Js::RegSlot_OneByte)-1;
 
-void AstFactory::InitNode(OpCode nop,ParseNodePtr pnode) {
+void AstFactory::InitNode(OpCode nop, ParseNodePtr pnode)
+{
     pnode->nop = nop;
     pnode->grfpn = PNodeFlags::fpnNone;
     pnode->location = NoRegister;
@@ -30,7 +31,7 @@ void AstFactory::InitNode(OpCode nop,ParseNodePtr pnode) {
 
 // Create nodes using Arena
 ParseNodePtr
-AstFactory::StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin , charcount_t ichLim, int blockId, PnodeBlockType blockType)
+AstFactory::StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin, charcount_t ichLim, int blockId, PnodeBlockType blockType)
 {
     ParseNodePtr pnode = StaticCreateNodeT<knopBlock>(alloc, ichMin, ichLim);
     InitBlockNode(pnode, blockId, blockType);
@@ -61,7 +62,7 @@ void AstFactory::InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType b
 
 // Create Node with limit
 template <OpCode nop>
-ParseNodePtr AstFactory::CreateNodeT(charcount_t ichMin,charcount_t ichLim)
+ParseNodePtr AstFactory::CreateNodeT(charcount_t ichMin, charcount_t ichLim)
 {
     Assert(!this->parser->m_deferringAST);
     ParseNodePtr pnode = StaticCreateNodeT<nop>(&parser->m_nodeAllocator, ichMin, ichLim);
@@ -108,7 +109,7 @@ void VerifyNodeSize(OpCode nop, int size)
 #endif
 
 ParseNodePtr AstFactory::StaticCreateBinNode(OpCode nop, ParseNodePtr pnode1,
-                                   ParseNodePtr pnode2,ArenaAllocator* alloc)
+                                             ParseNodePtr pnode2, ArenaAllocator* alloc)
 {
     DebugOnly(VerifyNodeSize(nop, kcbPnBin));
     ParseNodePtr pnode = (ParseNodePtr)alloc->Alloc(kcbPnBin);
@@ -154,14 +155,18 @@ ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin)
         *parser->m_pCurrentAstSize += cb;
     }
 
-    InitNode(nop,pnode);
+    InitNode(nop, pnode);
 
     // default - may be changed
     pnode->ichMin = ichMin;
-    if (parser->m_pscan!= nullptr) {
-      pnode->ichLim = parser->m_pscan->IchLimTok();
+    if (parser->m_pscan!= nullptr)
+    {
+        pnode->ichLim = parser->m_pscan->IchLimTok();
     }
-    else pnode->ichLim=0;
+    else
+    {
+        pnode->ichLim = 0;
+    }
 
     return pnode;
 }
@@ -235,7 +240,7 @@ ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNod
 }
 
 ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
-                                   ParseNodePtr pnode2, ParseNodePtr pnode3)
+                                       ParseNodePtr pnode2, ParseNodePtr pnode3)
 {
     charcount_t ichMin;
     charcount_t ichLim;
@@ -271,13 +276,13 @@ ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
     return CreateTriNode(nop, pnode1, pnode2, pnode3, ichMin, ichLim);
 }
 
-ParseNodePtr AstFactory::CreateBlockNode(charcount_t ichMin,charcount_t ichLim, PnodeBlockType blockType)
+ParseNodePtr AstFactory::CreateBlockNode(charcount_t ichMin, charcount_t ichLim, PnodeBlockType blockType)
 {
     return StaticCreateBlockNode(&parser->m_nodeAllocator, ichMin, ichLim, this->parser->m_nextBlockId++, blockType);
 }
 
 ParseNodePtr
-AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,charcount_t ichMin,charcount_t ichLim)
+AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim)
 {
     Assert(!this->parser->m_deferringAST);
     DebugOnly(VerifyNodeSize(nop, kcbPnCall));
@@ -380,7 +385,7 @@ ParseNodePtr AstFactory::CreateStrNodeWithScanner(IdentPtr pid)
     Assert(!this->parser->m_deferringAST);
 
     ParseNodePtr pnode = CreateNodeWithScanner<knopStr>();
-    pnode->sxPid.pid=pid;
+    pnode->sxPid.pid = pid;
     pnode->grfpn |= PNodeFlags::fpnCanFlattenConcatExpr;
     return pnode;
 }
@@ -396,7 +401,7 @@ ParseNodePtr AstFactory::CreateIntNodeWithScanner(int32 lw)
 ParseNodePtr AstFactory::CreateTempNode(ParseNode* initExpr)
 {
     ParseNodePtr pnode = CreateNode(knopTemp, (charcount_t)0);
-    pnode->sxVar.pnodeInit =initExpr;
+    pnode->sxVar.pnodeInit = initExpr;
     pnode->sxVar.pnodeNext = nullptr;
     return pnode;
 }
@@ -503,7 +508,7 @@ ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin, charcount_t 
     Assert(parser->m_pCurrentAstSize != NULL);
     *parser->m_pCurrentAstSize += cb;
 
-    InitNode(nop,pnode);
+    InitNode(nop, pnode);
 
     pnode->ichMin = ichMin;
     pnode->ichLim = ichLim;
@@ -511,15 +516,16 @@ ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin, charcount_t 
     return pnode;
 }
 
-ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid,charcount_t ichMin,charcount_t ichLim) {
-  ParseNodePtr pnode = CreateNodeT<knopName>(ichMin,ichLim);
-  pnode->sxPid.pid = pid;
-  pnode->sxPid.sym=NULL;
-  pnode->sxPid.symRef=NULL;
-  return pnode;
+ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid, charcount_t ichMin, charcount_t ichLim)
+{
+    ParseNodePtr pnode = CreateNodeT<knopName>(ichMin, ichLim);
+    pnode->sxPid.pid = pid;
+    pnode->sxPid.sym = NULL;
+    pnode->sxPid.symRef = NULL;
+    return pnode;
 }
 
-ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcount_t ichMin,charcount_t ichLim)
+ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcount_t ichMin, charcount_t ichLim)
 {
     Assert(!this->parser->m_deferringAST);
     DebugOnly(VerifyNodeSize(nop, kcbPnUni));
@@ -540,7 +546,7 @@ ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcoun
 }
 
 ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1,
-                                   ParseNodePtr pnode2,charcount_t ichMin,charcount_t ichLim)
+                                       ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim)
 {
     Assert(!this->parser->m_deferringAST);
     ParseNodePtr pnode = StaticCreateBinNode(nop, pnode1, pnode2, &parser->m_nodeAllocator);
@@ -555,8 +561,8 @@ ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1,
 }
 
 ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
-                                   ParseNodePtr pnode2, ParseNodePtr pnode3,
-                                   charcount_t ichMin,charcount_t ichLim)
+                                       ParseNodePtr pnode2, ParseNodePtr pnode3,
+                                       charcount_t ichMin, charcount_t ichLim)
 {
     Assert(!this->parser->m_deferringAST);
     DebugOnly(VerifyNodeSize(nop, kcbPnTri));

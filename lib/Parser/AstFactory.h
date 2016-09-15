@@ -19,7 +19,7 @@ public:
     static ParseNodePtr StaticCreateNodeT(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0)
     {
         ParseNodePtr pnode = StaticAllocNode<nop>(alloc);
-        InitNode(nop,pnode);
+        InitNode(nop, pnode);
         // default - may be changed
         pnode->ichMin = ichMin;
         pnode->ichLim = ichLim;
@@ -27,15 +27,15 @@ public:
         return pnode;
     }
 
-    static ParseNodePtr StaticCreateBinNode(OpCode nop, ParseNodePtr pnode1,ParseNodePtr pnode2,ArenaAllocator* alloc);
+    static ParseNodePtr StaticCreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, ArenaAllocator* alloc);
     static ParseNodePtr StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0, int blockId = -1, PnodeBlockType blockType = PnodeBlockType::Regular);
-    ParseNodePtr CreateNode(OpCode nop, charcount_t ichMin,charcount_t ichLim);
+    ParseNodePtr CreateNode(OpCode nop, charcount_t ichMin, charcount_t ichLim);
     ParseNodePtr CreateDummyFuncNode(bool fDeclaration);
 
 
     ParseNodePtr CreateTriNode(OpCode nop, ParseNodePtr pnode1,
                                ParseNodePtr pnode2, ParseNodePtr pnode3,
-                               charcount_t ichMin,charcount_t ichLim);
+                               charcount_t ichMin, charcount_t ichLim);
     ParseNodePtr CreateTempNode(ParseNode* initExpr);
     ParseNodePtr CreateTempRef(ParseNode* tempNode);
 
@@ -46,8 +46,8 @@ public:
     {
         ParseNodePtr pnode = CreateNode(knopName);
         pnode->sxPid.pid = pid;
-        pnode->sxPid.sym=NULL;
-        pnode->sxPid.symRef=NULL;
+        pnode->sxPid.sym = NULL;
+        pnode->sxPid.symRef = NULL;
         return pnode;
     }
     ParseNodePtr CreateBlockNode(PnodeBlockType blockType = PnodeBlockType::Regular);
@@ -62,14 +62,14 @@ public:
 
     // Create parse node with token limis
     template <OpCode nop>
-    ParseNodePtr CreateNodeT(charcount_t ichMin,charcount_t ichLim);
-    ParseNodePtr CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcount_t ichMin,charcount_t ichLim);
-    ParseNodePtr CreateBlockNode(charcount_t ichMin,charcount_t ichLim, PnodeBlockType blockType = PnodeBlockType::Regular);
-    ParseNodePtr CreateNameNode(IdentPtr pid,charcount_t ichMin,charcount_t ichLim);
+    ParseNodePtr CreateNodeT(charcount_t ichMin, charcount_t ichLim);
+    ParseNodePtr CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcount_t ichMin, charcount_t ichLim);
+    ParseNodePtr CreateBlockNode(charcount_t ichMin, charcount_t ichLim, PnodeBlockType blockType = PnodeBlockType::Regular);
+    ParseNodePtr CreateNameNode(IdentPtr pid, charcount_t ichMin, charcount_t ichLim);
     ParseNodePtr CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,
-        charcount_t ichMin,charcount_t ichLim);
+                               charcount_t ichMin, charcount_t ichLim);
     ParseNodePtr CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,
-        charcount_t ichMin,charcount_t ichLim);
+                                charcount_t ichMin, charcount_t ichLim);
 
     // Add a var declaration. Only use while parsing. Assumes m_ppnodeVar is pointing to the right place already
     ParseNodePtr CreateVarDeclNode(IdentPtr pid, SymbolType symbolType, bool autoArgumentsObject = false, ParseNodePtr pnodeFnc = NULL, bool checkReDecl = true);
@@ -90,7 +90,7 @@ public:
     ParseNodePtr CreateProgNodeWithScanner(bool isModuleSource);
 
 private:
-    static void InitNode(OpCode nop,ParseNodePtr pnode);
+    static void InitNode(OpCode nop, ParseNodePtr pnode);
     static void InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType);
 
     template <OpCode nop> static int GetNodeSize();

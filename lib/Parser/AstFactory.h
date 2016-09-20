@@ -19,15 +19,13 @@ public:
     static ParseNodePtr StaticCreateNodeT(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0)
     {
         ParseNodePtr pnode = StaticAllocNode<nop>(alloc);
-        InitNode(nop, pnode);
-        // default - may be changed
-        pnode->ichMin = ichMin;
-        pnode->ichLim = ichLim;
+        // default min/lim - may be changed
+        InitNode(nop, pnode, ichMin, ichLim);
 
         return pnode;
     }
 
-    static ParseNodePtr StaticCreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, ArenaAllocator* alloc);
+    static ParseNodePtr StaticCreateBinNode(ArenaAllocator* alloc, OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, charcount_t ichMin = 0, charcount_t ichLim = 0);
     static ParseNodePtr StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0, int blockId = -1, PnodeBlockType blockType = PnodeBlockType::Regular);
     ParseNodePtr CreateNode(OpCode nop, charcount_t ichMin, charcount_t ichLim);
     ParseNodePtr CreateDummyFuncNode(bool fDeclaration);
@@ -90,7 +88,7 @@ public:
     ParseNodePtr CreateProgNodeWithScanner(bool isModuleSource);
 
 private:
-    static void InitNode(OpCode nop, ParseNodePtr pnode);
+    static void InitNode(OpCode nop, ParseNodePtr pnode, charcount_t ichMin, charcount_t ichLim);
     static void InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType);
     static void InitDeclNode(ParseNodePtr pnode, IdentPtr name);
 

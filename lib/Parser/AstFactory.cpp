@@ -17,16 +17,21 @@ static const int g_mpnopcbNode[] =
 const Js::RegSlot NoRegister = (Js::RegSlot)-1;
 const Js::RegSlot OneByteRegister = (Js::RegSlot_OneByte)-1;
 
-void AstFactory::InitNode(OpCode nop, ParseNodePtr pnode)
+void AstFactory::InitNode(OpCode nop, ParseNodePtr pnode, charcount_t ichMin, charcount_t ichLim)
 {
     pnode->nop = nop;
     pnode->grfpn = PNodeFlags::fpnNone;
+    pnode->ichMin = ichMin;
+    pnode->ichLim = ichLim;
     pnode->location = NoRegister;
-    pnode->emitLabels = false;
     pnode->isUsed = true;
+    pnode->emitLabels = false;
     pnode->notEscapedUse = false;
     pnode->isInList = false;
     pnode->isCallApplyTargetLoad = false;
+#ifdef EDIT_AND_CONTINUE
+    pnode->parent = nullptr;
+#endif
 }
 
 // Create nodes using Arena
@@ -120,12 +125,13 @@ void VerifyNodeSize(OpCode nop, int size)
 }
 #endif
 
-ParseNodePtr AstFactory::StaticCreateBinNode(OpCode nop, ParseNodePtr pnode1,
-                                             ParseNodePtr pnode2, ArenaAllocator* alloc)
+ParseNodePtr AstFactory::StaticCreateBinNode(ArenaAllocator* alloc, OpCode nop,
+                                             ParseNodePtr pnode1, ParseNodePtr pnode2,
+                                             charcount_t ichMin, charcount_t ichLim)
 {
     DebugOnly(VerifyNodeSize(nop, kcbPnBin));
     ParseNodePtr pnode = (ParseNodePtr)alloc->Alloc(kcbPnBin);
-    InitNode(nop, pnode);
+    InitNode(nop, pnode, ichMin, ichLim);
 
     pnode->sxBin.pnodeNext = nullptr;
     pnode->sxBin.pnode1 = pnode1;
@@ -167,18 +173,8 @@ ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin)
         *parser->m_pCurrentAstSize += cb;
     }
 
-    InitNode(nop, pnode);
-
-    // default - may be changed
-    pnode->ichMin = ichMin;
-    if (parser->m_pscan!= nullptr)
-    {
-        pnode->ichLim = parser->m_pscan->IchLimTok();
-    }
-    else
-    {
-        pnode->ichLim = 0;
-    }
+    // default min/lim - may be changed
+    InitNode(nop, pnode, ichMin, parser->m_pscan != nullptr ? parser->m_pscan->IchLimTok() : 0);
 
     return pnode;
 }
@@ -192,22 +188,31 @@ ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1)
     Assert(parser->m_pCurrentAstSize != nullptr);
     *parser->m_pCurrentAstSize += kcbPnUni;
 
-    InitNode(nop, pnode);
-
-    pnode->sxUni.pnode1 = pnode1;
+    charcount_t ichMin;
+    charcount_t ichLim;
     if (nullptr == pnode1)
     {
         // no ops
-        pnode->ichMin = parser->m_pscan->IchMinTok();
-        pnode->ichLim = parser->m_pscan->IchLimTok();
+        ichMin = parser->m_pscan->IchMinTok();
+        ichLim = parser->m_pscan->IchLimTok();
     }
     else
     {
         // 1 op
-        pnode->ichMin = pnode1->ichMin;
-        pnode->ichLim = pnode1->ichLim;
+        ichMin = pnode1->ichMin;
+        ichLim = pnode1->ichLim;
+    }
+
+    InitNode(nop, pnode, ichMin, ichLim);
+
+    pnode->sxUni.pnode1 = pnode1;
+
+    if (pnode1 != nullptr)
+    {
+        // Checking for the `arguments` identifier shouldn't be the responsibility of AstFactory
         this->parser->CheckArguments(pnode);
     }
+
     return pnode;
 }
 
@@ -303,7 +308,7 @@ AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,
     Assert(parser->m_pCurrentAstSize != nullptr);
     *parser->m_pCurrentAstSize += kcbPnCall;
 
-    InitNode(nop, pnode);
+    InitNode(nop, pnode, ichMin, ichLim);
 
     pnode->sxCall.pnodeTarget = pnode1;
     pnode->sxCall.pnodeArgs = pnode2;
@@ -312,9 +317,6 @@ AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,
     pnode->sxCall.callOfConstants = false;
     pnode->sxCall.isApplyCall = false;
     pnode->sxCall.isEvalCall = false;
-
-    pnode->ichMin = ichMin;
-    pnode->ichLim = ichLim;
 
     return pnode;
 }
@@ -520,10 +522,7 @@ ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin, charcount_t 
     Assert(parser->m_pCurrentAstSize != NULL);
     *parser->m_pCurrentAstSize += cb;
 
-    InitNode(nop, pnode);
-
-    pnode->ichMin = ichMin;
-    pnode->ichLim = ichLim;
+    InitNode(nop, pnode, ichMin, ichLim);
 
     return pnode;
 }
@@ -547,12 +546,9 @@ ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcoun
     Assert(parser->m_pCurrentAstSize != NULL);
     *parser->m_pCurrentAstSize += kcbPnUni;
 
-    InitNode(nop, pnode);
+    InitNode(nop, pnode, ichMin, ichLim);
 
     pnode->sxUni.pnode1 = pnode1;
-
-    pnode->ichMin = ichMin;
-    pnode->ichLim = ichLim;
 
     return pnode;
 }
@@ -561,13 +557,10 @@ ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1,
                                        ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim)
 {
     Assert(!this->parser->m_deferringAST);
-    ParseNodePtr pnode = StaticCreateBinNode(nop, pnode1, pnode2, &parser->m_nodeAllocator);
+    ParseNodePtr pnode = StaticCreateBinNode(&parser->m_nodeAllocator, nop, pnode1, pnode2, ichMin, ichLim);
 
     Assert(parser->m_pCurrentAstSize != NULL);
     *parser->m_pCurrentAstSize += kcbPnBin;
-
-    pnode->ichMin = ichMin;
-    pnode->ichLim = ichLim;
 
     return pnode;
 }
@@ -583,15 +576,12 @@ ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
     Assert(parser->m_pCurrentAstSize != NULL);
     *parser->m_pCurrentAstSize += kcbPnTri;
 
-    InitNode(nop, pnode);
+    InitNode(nop, pnode, ichMin, ichLim);
 
     pnode->sxTri.pnodeNext = NULL;
     pnode->sxTri.pnode1 = pnode1;
     pnode->sxTri.pnode2 = pnode2;
     pnode->sxTri.pnode3 = pnode3;
-
-    pnode->ichMin = ichMin;
-    pnode->ichLim = ichLim;
 
     return pnode;
 }

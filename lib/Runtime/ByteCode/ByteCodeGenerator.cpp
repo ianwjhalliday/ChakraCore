@@ -3852,9 +3852,8 @@ ParseNode* ConstructInvertedStatement(ParseNode* stmt, ByteCodeGenerator* byteCo
         }
         else
         {
-            ParseNode* listNode = AstFactory::StaticCreateBinNode(knopList, nullptr, nullptr, alloc);
+            ParseNode* listNode = AstFactory::StaticCreateBinNode(alloc, knopList, loopInvar, nullptr);
             (*outerStmtRef)->sxBin.pnode2 = listNode;
-            listNode->sxBin.pnode1 = loopInvar;
             *outerStmtRef = listNode;
         }
 
@@ -3862,7 +3861,7 @@ ParseNode* ConstructInvertedStatement(ParseNode* stmt, ByteCodeGenerator* byteCo
 
         if (lhs != nullptr)
         {
-            cStmt = AstFactory::StaticCreateBinNode(knopAsg, lhs, tempName, alloc);
+            cStmt = AstFactory::StaticCreateBinNode(alloc, knopAsg, lhs, tempName);
         }
         else
         {
@@ -3907,7 +3906,7 @@ ParseNode* ConstructInvertedLoop(ParseNode* innerLoop, ParseNode* outerLoop, Byt
     outerLoopC->sxFor.pnodeBody = outerBod;
     outerBod->sxBlock.scope = outerLoop->sxFor.pnodeBody->sxBlock.scope;
 
-    ParseNode* listNode = AstFactory::StaticCreateBinNode(knopList, nullptr, nullptr, alloc);
+    ParseNode* listNode = AstFactory::StaticCreateBinNode(alloc, knopList, nullptr, nullptr);
     outerBod->sxBlock.pnodeStmt = listNode;
 
     ParseNode* innerBodOriginal = innerLoop->sxFor.pnodeBody;

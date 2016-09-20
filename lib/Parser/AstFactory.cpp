@@ -89,15 +89,7 @@ ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1)
 
 ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcount_t ichMin, charcount_t ichLim)
 {
-    Assert(!this->parser->m_deferringAST);
-    DebugOnly(VerifyNodeSize(nop, kcbPnUni));
-
-    ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(kcbPnUni);
-
-    Assert(parser->m_pCurrentAstSize != nullptr);
-    *parser->m_pCurrentAstSize += kcbPnUni;
-
-    InitNode(nop, pnode, ichMin, ichLim);
+    ParseNodePtr pnode = InternalCreateNode(nop, kcbPnUni, ichMin, ichLim);
 
     pnode->sxUni.pnode1 = pnode1;
 
@@ -125,11 +117,9 @@ ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNod
 ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1,
                                        ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim)
 {
-    Assert(!this->parser->m_deferringAST);
-    ParseNodePtr pnode = StaticCreateBinNode(&parser->m_nodeAllocator, nop, pnode1, pnode2, ichMin, ichLim);
+    ParseNodePtr pnode = InternalCreateNode(nop, kcbPnBin, ichMin, ichLim);
 
-    Assert(parser->m_pCurrentAstSize != nullptr);
-    *parser->m_pCurrentAstSize += kcbPnBin;
+    InitBinNode(pnode, pnode1, pnode2);
 
     return pnode;
 }
@@ -146,14 +136,7 @@ ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1, ParseNod
 ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, ParseNodePtr pnode3,
                                        charcount_t ichMin, charcount_t ichLim)
 {
-    Assert(!this->parser->m_deferringAST);
-    DebugOnly(VerifyNodeSize(nop, kcbPnTri));
-    ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(kcbPnTri);
-
-    Assert(parser->m_pCurrentAstSize != nullptr);
-    *parser->m_pCurrentAstSize += kcbPnTri;
-
-    InitNode(nop, pnode, ichMin, ichLim);
+    ParseNodePtr pnode = InternalCreateNode(nop, kcbPnTri, ichMin, ichLim);
 
     pnode->sxTri.pnodeNext = nullptr;
     pnode->sxTri.pnode1 = pnode1;
@@ -165,11 +148,7 @@ ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1, ParseNod
 
 ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid)
 {
-    ParseNodePtr pnode = CreateNode<knopName>();
-    pnode->sxPid.pid = pid;
-    pnode->sxPid.sym = nullptr;
-    pnode->sxPid.symRef = nullptr;
-    return pnode;
+    return CreateNameNode(pid, parser->m_pscan->IchMinTok(), parser->m_pscan->IchLimTok());
 }
 
 ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid, charcount_t ichMin, charcount_t ichLim)
@@ -210,14 +189,7 @@ ParseNodePtr AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNo
 ParseNodePtr
 AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim)
 {
-    Assert(!this->parser->m_deferringAST);
-    DebugOnly(VerifyNodeSize(nop, kcbPnCall));
-    ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(kcbPnCall);
-
-    Assert(parser->m_pCurrentAstSize != nullptr);
-    *parser->m_pCurrentAstSize += kcbPnCall;
-
-    InitNode(nop, pnode, ichMin, ichLim);
+    ParseNodePtr pnode = InternalCreateNode(nop, kcbPnCall, ichMin, ichLim);
 
     pnode->sxCall.pnodeTarget = pnode1;
     pnode->sxCall.pnodeArgs = pnode2;
@@ -383,22 +355,7 @@ ParseNodePtr AstFactory::StaticCreateBinNode(ArenaAllocator* alloc, OpCode nop,
     ParseNodePtr pnode = (ParseNodePtr)alloc->Alloc(kcbPnBin);
     InitNode(nop, pnode, ichMin, ichLim);
 
-    pnode->sxBin.pnodeNext = nullptr;
-    pnode->sxBin.pnode1 = pnode1;
-    pnode->sxBin.pnode2 = pnode2;
-
-    // Statically detect if the add is a concat
-    if (!PHASE_OFF1(Js::ByteCodeConcatExprOptPhase))
-    {
-        // We can't flatten the concat expression if the LHS is not a flatten concat already
-        // e.g.  a + (<str> + b)
-        //      Side effect of ToStr(b) need to happen first before ToStr(a)
-        //      If we flatten the concat expression, we will do ToStr(a) before ToStr(b)
-        if ((nop == knopAdd) && (pnode1->CanFlattenConcatExpr() || pnode2->nop == knopStr))
-        {
-            pnode->grfpn |= fpnCanFlattenConcatExpr;
-        }
-    }
+    InitBinNode(pnode, pnode1, pnode2);
 
     return pnode;
 }
@@ -477,6 +434,26 @@ void AstFactory::InitNode(OpCode nop, ParseNodePtr pnode, charcount_t ichMin, ch
 #endif
 }
 
+void AstFactory::InitBinNode(ParseNodePtr pnode, ParseNodePtr pnode1, ParseNodePtr pnode2)
+{
+    pnode->sxBin.pnodeNext = nullptr;
+    pnode->sxBin.pnode1 = pnode1;
+    pnode->sxBin.pnode2 = pnode2;
+
+    // Statically detect if the add is a concat
+    if (!PHASE_OFF1(Js::ByteCodeConcatExprOptPhase))
+    {
+        // We can't flatten the concat expression if the LHS is not a flatten concat already
+        // e.g.  a + (<str> + b)
+        //      Side effect of ToStr(b) need to happen first before ToStr(a)
+        //      If we flatten the concat expression, we will do ToStr(a) before ToStr(b)
+        if ((pnode->nop == knopAdd) && (pnode1->CanFlattenConcatExpr() || pnode2->nop == knopStr))
+        {
+            pnode->grfpn |= fpnCanFlattenConcatExpr;
+        }
+    }
+}
+
 void AstFactory::InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType)
 {
     Assert(pnode->nop == knopBlock);
@@ -509,4 +486,18 @@ void AstFactory::InitDeclNode(ParseNodePtr pnode, IdentPtr name)
     pnode->sxVar.pnodeInit = nullptr;
     pnode->sxVar.isSwitchStmtDecl = false;
     pnode->sxVar.isBlockScopeFncDeclVar = false;
+}
+
+ParseNodePtr AstFactory::InternalCreateNode(OpCode nop, int cb, charcount_t ichMin, charcount_t ichLim)
+{
+    Assert(!this->parser->m_deferringAST);
+    DebugOnly(VerifyNodeSize(nop, cb));
+    ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(cb);
+
+    Assert(parser->m_pCurrentAstSize != nullptr);
+    *parser->m_pCurrentAstSize += cb;
+
+    InitNode(nop, pnode, ichMin, ichLim);
+
+    return pnode;
 }

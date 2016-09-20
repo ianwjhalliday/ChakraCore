@@ -90,9 +90,11 @@ private:
     void ChooseOpMinLim(ParseNodePtr pnode1, ParseNodePtr pnode2, ParseNodePtr pnode3, charcount_t* pichMin, charcount_t* pichLim);
 
     static void InitNode(OpCode nop, ParseNodePtr pnode, charcount_t ichMin, charcount_t ichLim);
+    static void InitBinNode(ParseNodePtr pnode, ParseNodePtr pnode1, ParseNodePtr pnode2);
     static void InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType);
     static void InitDeclNode(ParseNodePtr pnode, IdentPtr name);
 
+    ParseNodePtr InternalCreateNode(OpCode nop, int cb, charcount_t ichMin, charcount_t ichLim);
     template <OpCode nop> static int GetNodeSize();
 };
 

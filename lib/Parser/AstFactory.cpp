@@ -46,18 +46,18 @@ AstFactory::StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin, cha
 void AstFactory::InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType)
 {
     Assert(pnode->nop == knopBlock);
+    pnode->sxBlock.pnodeStmt = nullptr;
+    pnode->sxBlock.pnodeLastValStmt = nullptr;
+    pnode->sxBlock.pnodeLexVars = nullptr;
     pnode->sxBlock.pnodeScopes = nullptr;
     pnode->sxBlock.pnodeNext = nullptr;
     pnode->sxBlock.scope = nullptr;
-    pnode->sxBlock.enclosingBlock = nullptr;
-    pnode->sxBlock.pnodeLexVars = nullptr;
-    pnode->sxBlock.pnodeStmt = nullptr;
-    pnode->sxBlock.pnodeLastValStmt = nullptr;
 
+    pnode->sxBlock.enclosingBlock = nullptr;
+    pnode->sxBlock.blockId = blockId;
+    pnode->sxBlock.blockType = blockType;
     pnode->sxBlock.callsEval = false;
     pnode->sxBlock.childCallsEval = false;
-    pnode->sxBlock.blockType = blockType;
-    pnode->sxBlock.blockId = blockId;
 
     if (blockType != PnodeBlockType::Regular)
     {
@@ -86,11 +86,11 @@ ParseNodePtr AstFactory::CreateNode(OpCode nop)
 void AstFactory::InitDeclNode(ParseNodePtr pnode, IdentPtr name)
 {
     Assert(pnode->IsVarLetOrConst());
-    pnode->sxVar.pid = name;
-    pnode->sxVar.pnodeInit = nullptr;
     pnode->sxVar.pnodeNext = nullptr;
+    pnode->sxVar.pid = name;
     pnode->sxVar.sym = nullptr;
     pnode->sxVar.symRef = nullptr;
+    pnode->sxVar.pnodeInit = nullptr;
     pnode->sxVar.isSwitchStmtDecl = false;
     pnode->sxVar.isBlockScopeFncDeclVar = false;
 }

@@ -66,7 +66,7 @@ ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin, charcount_t 
     pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(cb);
     Assert(pnode);
 
-    Assert(parser->m_pCurrentAstSize != NULL);
+    Assert(parser->m_pCurrentAstSize != nullptr);
     *parser->m_pCurrentAstSize += cb;
 
     InitNode(nop, pnode, ichMin, ichLim);
@@ -80,7 +80,7 @@ ParseNodePtr AstFactory::CreateNodeT(charcount_t ichMin, charcount_t ichLim)
     Assert(!this->parser->m_deferringAST);
     ParseNodePtr pnode = StaticCreateNodeT<nop>(&parser->m_nodeAllocator, ichMin, ichLim);
 
-    Assert(parser->m_pCurrentAstSize != NULL);
+    Assert(parser->m_pCurrentAstSize != nullptr);
     *parser->m_pCurrentAstSize += GetNodeSize<nop>();
 
     return pnode;
@@ -167,7 +167,7 @@ ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcoun
 
     ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(kcbPnUni);
 
-    Assert(parser->m_pCurrentAstSize != NULL);
+    Assert(parser->m_pCurrentAstSize != nullptr);
     *parser->m_pCurrentAstSize += kcbPnUni;
 
     InitNode(nop, pnode, ichMin, ichLim);
@@ -223,7 +223,7 @@ ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1,
     Assert(!this->parser->m_deferringAST);
     ParseNodePtr pnode = StaticCreateBinNode(&parser->m_nodeAllocator, nop, pnode1, pnode2, ichMin, ichLim);
 
-    Assert(parser->m_pCurrentAstSize != NULL);
+    Assert(parser->m_pCurrentAstSize != nullptr);
     *parser->m_pCurrentAstSize += kcbPnBin;
 
     return pnode;
@@ -274,12 +274,12 @@ ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
     DebugOnly(VerifyNodeSize(nop, kcbPnTri));
     ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(kcbPnTri);
 
-    Assert(parser->m_pCurrentAstSize != NULL);
+    Assert(parser->m_pCurrentAstSize != nullptr);
     *parser->m_pCurrentAstSize += kcbPnTri;
 
     InitNode(nop, pnode, ichMin, ichLim);
 
-    pnode->sxTri.pnodeNext = NULL;
+    pnode->sxTri.pnodeNext = nullptr;
     pnode->sxTri.pnode1 = pnode1;
     pnode->sxTri.pnode2 = pnode2;
     pnode->sxTri.pnode3 = pnode3;
@@ -291,8 +291,8 @@ ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid)
 {
     ParseNodePtr pnode = CreateNode(knopName);
     pnode->sxPid.pid = pid;
-    pnode->sxPid.sym = NULL;
-    pnode->sxPid.symRef = NULL;
+    pnode->sxPid.sym = nullptr;
+    pnode->sxPid.symRef = nullptr;
     return pnode;
 }
 
@@ -300,8 +300,8 @@ ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid, charcount_t ichMin, charco
 {
     ParseNodePtr pnode = CreateNodeT<knopName>(ichMin, ichLim);
     pnode->sxPid.pid = pid;
-    pnode->sxPid.sym = NULL;
-    pnode->sxPid.symRef = NULL;
+    pnode->sxPid.sym = nullptr;
+    pnode->sxPid.symRef = nullptr;
     return pnode;
 }
 

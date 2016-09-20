@@ -50,7 +50,7 @@ public:
     ParseNodePtr CreateDeclNode(OpCode nop, IdentPtr pid, SymbolType symbolType, bool errorOnRedecl = true);
 
     // Add a var declaration. Only use while parsing. Assumes m_ppnodeVar is pointing to the right place already
-    ParseNodePtr CreateVarDeclNode(IdentPtr pid, SymbolType symbolType, bool autoArgumentsObject = false, ParseNodePtr pnodeFnc = NULL, bool checkReDecl = true);
+    ParseNodePtr CreateVarDeclNode(IdentPtr pid, SymbolType symbolType, bool autoArgumentsObject = false, ParseNodePtr pnodeFnc = nullptr, bool checkReDecl = true);
     // Add a var declaration, during parse tree rewriting. Will setup m_ppnodeVar for the given pnodeFnc
     // This shouldn't be here? Or should the other two not be named Create...()?
     //ParseNodePtr AddVarDeclNode(IdentPtr pid, ParseNodePtr pnodeFnc);

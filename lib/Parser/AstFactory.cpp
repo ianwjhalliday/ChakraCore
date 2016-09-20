@@ -78,11 +78,23 @@ ParseNodePtr AstFactory::CreateNode(OpCode nop)
     return CreateNode(nop, parser->m_pscan ? parser->m_pscan->IchMinTok() : 0);
 }
 
+void AstFactory::InitDeclNode(ParseNodePtr pnode, IdentPtr name)
+{
+    Assert(pnode->IsVarLetOrConst());
+    pnode->sxVar.pid = name;
+    pnode->sxVar.pnodeInit = nullptr;
+    pnode->sxVar.pnodeNext = nullptr;
+    pnode->sxVar.sym = nullptr;
+    pnode->sxVar.symRef = nullptr;
+    pnode->sxVar.isSwitchStmtDecl = false;
+    pnode->sxVar.isBlockScopeFncDeclVar = false;
+}
+
 ParseNodePtr AstFactory::CreateDeclNode(OpCode nop, IdentPtr pid, SymbolType symbolType, bool errorOnRedecl)
 {
     ParseNodePtr pnode = CreateNode(nop);
 
-    pnode->sxVar.InitDeclNode(pid, NULL);
+    InitDeclNode(pnode, pid);
 
     if (symbolType != STUnknown)
     {

@@ -117,19 +117,8 @@ struct PnVar
     Symbol *sym;
     Symbol **symRef;
     ParseNodePtr pnodeInit;
-    BOOLEAN isSwitchStmtDecl;
-    BOOLEAN isBlockScopeFncDeclVar;
-
-    void InitDeclNode(IdentPtr name, ParseNodePtr initExpr)
-    {
-        this->pid = name;
-        this->pnodeInit = initExpr;
-        this->pnodeNext = nullptr;
-        this->sym = nullptr;
-        this->symRef = nullptr;
-        this->isSwitchStmtDecl = false;
-        this->isBlockScopeFncDeclVar = false;
-    }
+    bool isSwitchStmtDecl;
+    bool isBlockScopeFncDeclVar;
 };
 
 struct PnArrLit : PnUni

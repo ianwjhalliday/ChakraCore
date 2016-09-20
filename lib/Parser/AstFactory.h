@@ -92,6 +92,7 @@ public:
 private:
     static void InitNode(OpCode nop, ParseNodePtr pnode);
     static void InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType);
+    static void InitDeclNode(ParseNodePtr pnode, IdentPtr name);
 
     template <OpCode nop> static int GetNodeSize();
 

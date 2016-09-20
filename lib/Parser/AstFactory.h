@@ -71,13 +71,7 @@ public:
     template <OpCode nop>
     static ParseNodePtr StaticCreateNodeT(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0)
     {
-        ParseNodePtr pnode = (ParseNodePtr)alloc->Alloc(GetNodeSize<nop>());
-        Assert(pnode != nullptr);
-
-        // default min/lim - may be changed
-        InitNode(nop, pnode, ichMin, ichLim);
-
-        return pnode;
+        return InternalCreateNode(alloc, nop, GetNodeSize<nop>(), ichMin, ichLim);
     }
 
     static ParseNodePtr StaticCreateBinNode(ArenaAllocator* alloc, OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, charcount_t ichMin = 0, charcount_t ichLim = 0);
@@ -94,7 +88,9 @@ private:
     static void InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType);
     static void InitDeclNode(ParseNodePtr pnode, IdentPtr name);
 
-    ParseNodePtr InternalCreateNode(OpCode nop, int cb, charcount_t ichMin, charcount_t ichLim);
+    static ParseNodePtr InternalCreateNode(ArenaAllocator* alloc, OpCode nop, int cb, charcount_t ichMin, charcount_t ichLim);
+    template <bool allowDeferredParse = false>
+    ParseNodePtr InternalCreateNodeTrackAstSize(OpCode nop, int cb, charcount_t ichMin, charcount_t ichLim);
     template <OpCode nop> static int GetNodeSize();
 };
 

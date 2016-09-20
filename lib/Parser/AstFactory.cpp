@@ -34,15 +34,7 @@ ParseNodePtr AstFactory::CreateNode(charcount_t ichMin)
 template <OpCode nop>
 ParseNodePtr AstFactory::CreateNode(charcount_t ichMin, charcount_t ichLim)
 {
-    Assert(parser->IsNodeAllowedInCurrentDeferralState(nop));
-
-    if (!parser->m_deferringAST)
-    {
-        Assert(parser->m_pCurrentAstSize != nullptr);
-        *parser->m_pCurrentAstSize += GetNodeSize<nop>();
-    }
-
-    return StaticCreateNodeT<nop>(&parser->m_nodeAllocator, ichMin, ichLim);
+    return InternalCreateNodeTrackAstSize<true>(nop, GetNodeSize<nop>(), ichMin, ichLim);
 }
 
 #define PTNODE(nop,sn,pc,nk,ok,json) \
@@ -89,7 +81,7 @@ ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1)
 
 ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcount_t ichMin, charcount_t ichLim)
 {
-    ParseNodePtr pnode = InternalCreateNode(nop, kcbPnUni, ichMin, ichLim);
+    ParseNodePtr pnode = InternalCreateNodeTrackAstSize(nop, kcbPnUni, ichMin, ichLim);
 
     pnode->sxUni.pnode1 = pnode1;
 
@@ -117,7 +109,7 @@ ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNod
 ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1,
                                        ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim)
 {
-    ParseNodePtr pnode = InternalCreateNode(nop, kcbPnBin, ichMin, ichLim);
+    ParseNodePtr pnode = InternalCreateNodeTrackAstSize(nop, kcbPnBin, ichMin, ichLim);
 
     InitBinNode(pnode, pnode1, pnode2);
 
@@ -136,7 +128,7 @@ ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1, ParseNod
 ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, ParseNodePtr pnode3,
                                        charcount_t ichMin, charcount_t ichLim)
 {
-    ParseNodePtr pnode = InternalCreateNode(nop, kcbPnTri, ichMin, ichLim);
+    ParseNodePtr pnode = InternalCreateNodeTrackAstSize(nop, kcbPnTri, ichMin, ichLim);
 
     pnode->sxTri.pnodeNext = nullptr;
     pnode->sxTri.pnode1 = pnode1;
@@ -189,7 +181,7 @@ ParseNodePtr AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNo
 ParseNodePtr
 AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim)
 {
-    ParseNodePtr pnode = InternalCreateNode(nop, kcbPnCall, ichMin, ichLim);
+    ParseNodePtr pnode = InternalCreateNodeTrackAstSize(nop, kcbPnCall, ichMin, ichLim);
 
     pnode->sxCall.pnodeTarget = pnode1;
     pnode->sxCall.pnodeArgs = pnode2;
@@ -351,19 +343,15 @@ ParseNodePtr AstFactory::StaticCreateBinNode(ArenaAllocator* alloc, OpCode nop,
                                              ParseNodePtr pnode1, ParseNodePtr pnode2,
                                              charcount_t ichMin, charcount_t ichLim)
 {
-    DebugOnly(VerifyNodeSize(nop, kcbPnBin));
-    ParseNodePtr pnode = (ParseNodePtr)alloc->Alloc(kcbPnBin);
-    InitNode(nop, pnode, ichMin, ichLim);
-
+    ParseNodePtr pnode = InternalCreateNode(alloc, nop, kcbPnBin, ichMin, ichLim);
     InitBinNode(pnode, pnode1, pnode2);
-
     return pnode;
 }
 
 ParseNodePtr
 AstFactory::StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin, charcount_t ichLim, int blockId, PnodeBlockType blockType)
 {
-    ParseNodePtr pnode = StaticCreateNodeT<knopBlock>(alloc, ichMin, ichLim);
+    ParseNodePtr pnode = InternalCreateNode(alloc, knopBlock, kcbPnBlock, ichMin, ichLim);
     InitBlockNode(pnode, blockId, blockType);
     return pnode;
 }
@@ -488,16 +476,27 @@ void AstFactory::InitDeclNode(ParseNodePtr pnode, IdentPtr name)
     pnode->sxVar.isBlockScopeFncDeclVar = false;
 }
 
-ParseNodePtr AstFactory::InternalCreateNode(OpCode nop, int cb, charcount_t ichMin, charcount_t ichLim)
+ParseNodePtr AstFactory::InternalCreateNode(ArenaAllocator* alloc, OpCode nop, int cb, charcount_t ichMin, charcount_t ichLim)
 {
-    Assert(!this->parser->m_deferringAST);
     DebugOnly(VerifyNodeSize(nop, cb));
-    ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(cb);
-
-    Assert(parser->m_pCurrentAstSize != nullptr);
-    *parser->m_pCurrentAstSize += cb;
+    ParseNodePtr pnode = (ParseNodePtr)alloc->Alloc(cb);
 
     InitNode(nop, pnode, ichMin, ichLim);
 
     return pnode;
+}
+
+template <bool allowDeferredParse>
+ParseNodePtr AstFactory::InternalCreateNodeTrackAstSize(OpCode nop, int cb, charcount_t ichMin, charcount_t ichLim)
+{
+    Assert(allowDeferredParse || !this->parser->m_deferringAST);
+    Assert(!allowDeferredParse || parser->IsNodeAllowedInCurrentDeferralState(nop));
+
+    if (!allowDeferredParse || !parser->m_deferringAST)
+    {
+        Assert(parser->m_pCurrentAstSize != nullptr);
+        *parser->m_pCurrentAstSize += cb;
+    }
+
+    return InternalCreateNode(&parser->m_nodeAllocator, nop, cb, ichMin, ichLim);
 }

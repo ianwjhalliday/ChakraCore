@@ -3727,26 +3727,26 @@ void CheckInvertableExpr(ParseNode* pnode, ByteCodeGenerator* byteCodeGenerator,
                         {
                             symCheck->result = false;
                         }
-                        }
+                    }
                     else
                     {
                         symCheck->result = false;
                     }
-                    }
+                }
                 else if (callTarget->nop == knopDot)
                 {
                     if (!IsLibraryFunction(callTarget, byteCodeGenerator->GetScriptContext()))
                     {
                         symCheck->result = false;
+                    }
                 }
-                    }
-                    }
+            }
             else
             {
                 symCheck->result = false;
-                }
+            }
             break;
-                       }
+        }
         case knopDot:
             if (!IsLibraryFunction(pnode, byteCodeGenerator->GetScriptContext()))
             {
@@ -3818,10 +3818,10 @@ ParseNode* ConstructInvertedStatement(ParseNode* stmt, ByteCodeGenerator* byteCo
 {
     if (stmt == nullptr)
     {
-            return nullptr;
-        }
+        return nullptr;
+    }
 
-        ParseNode* cStmt;
+    ParseNode* cStmt;
     if ((stmt->nop == knopAsg) || (stmt->nop == knopVarDecl))
     {
         ParseNode* rhs = nullptr;
@@ -3831,55 +3831,55 @@ ParseNode* ConstructInvertedStatement(ParseNode* stmt, ByteCodeGenerator* byteCo
         {
             rhs = stmt->sxBin.pnode2;
             lhs = stmt->sxBin.pnode1;
-            }
+        }
         else if (stmt->nop == knopVarDecl)
         {
             rhs = stmt->sxVar.pnodeInit;
-            }
+        }
         ArenaAllocator* alloc = byteCodeGenerator->GetAllocator();
         ParseNode* loopInvar = byteCodeGenerator->GetParser()->Ast().CreateTempNode(rhs);
         loopInvar->location = funcInfo->NextVarRegister();
 
-            // Can't use a temp register here because the inversion happens at the parse tree level without generating
+        // Can't use a temp register here because the inversion happens at the parse tree level without generating
         // any bytecode yet. All local non-temp registers need to be initialized for jitted loop bodies, and since this is
-            // not a user variable, track this register separately to have it be initialized at the top of the function.
-            funcInfo->nonUserNonTempRegistersToInitialize.Add(loopInvar->location);
+        // not a user variable, track this register separately to have it be initialized at the top of the function.
+        funcInfo->nonUserNonTempRegistersToInitialize.Add(loopInvar->location);
 
-            // add temp node to list of initializers for new outer loop
+        // add temp node to list of initializers for new outer loop
         if ((*outerStmtRef)->sxBin.pnode1 == nullptr)
         {
             (*outerStmtRef)->sxBin.pnode1 = loopInvar;
-            }
+        }
         else
         {
             ParseNode* listNode = AstFactory::StaticCreateBinNode(knopList, nullptr, nullptr, alloc);
             (*outerStmtRef)->sxBin.pnode2 = listNode;
             listNode->sxBin.pnode1 = loopInvar;
             *outerStmtRef = listNode;
-            }
+        }
 
         ParseNode* tempName = byteCodeGenerator->GetParser()->Ast().CreateTempRef(loopInvar);
 
         if (lhs != nullptr)
         {
             cStmt = AstFactory::StaticCreateBinNode(knopAsg, lhs, tempName, alloc);
-            }
+        }
         else
         {
-                // Use AddVarDeclNode to add the var to the function.
-                // Do not use CreateVarDeclNode which is meant to be used while parsing. It assumes that
-                // parser's internal data structures (m_ppnodeVar in particular) is at the "current" location.
+            // Use AddVarDeclNode to add the var to the function.
+            // Do not use CreateVarDeclNode which is meant to be used while parsing. It assumes that
+            // parser's internal data structures (m_ppnodeVar in particular) is at the "current" location.
             cStmt = byteCodeGenerator->GetParser()->AddVarDeclNode(stmt->sxVar.pid, funcInfo->root);
             cStmt->sxVar.pnodeInit = tempName;
             cStmt->sxVar.sym = stmt->sxVar.sym;
-            }
         }
+    }
     else
     {
         cStmt = byteCodeGenerator->GetParser()->CopyPnode(stmt);
-        }
+    }
 
-        return cStmt;
+    return cStmt;
 }
 
 ParseNode* ConstructInvertedLoop(ParseNode* innerLoop, ParseNode* outerLoop, ByteCodeGenerator* byteCodeGenerator, FuncInfo* funcInfo)
@@ -4068,20 +4068,20 @@ bool InvertableBlock(ParseNode* block, Symbol* outerVar, ParseNode* innerLoop, P
 {
     if (block == nullptr)
     {
-            return false;
-        }
+        return false;
+    }
 
     if (!symCheck->AddSymbol(outerVar))
     {
-            return false;
-        }
+        return false;
+    }
 
-        if ((innerLoop->sxFor.pnodeBody->nop == knopBlock && innerLoop->sxFor.pnodeBody->sxBlock.HasBlockScopedContent())
-            || (outerLoop->sxFor.pnodeBody->nop == knopBlock && outerLoop->sxFor.pnodeBody->sxBlock.HasBlockScopedContent()))
-        {
-            // we can not invert loops if there are block scoped declarations inside
-            return false;
-        }
+    if ((innerLoop->sxFor.pnodeBody->nop == knopBlock && innerLoop->sxFor.pnodeBody->sxBlock.HasBlockScopedContent())
+        || (outerLoop->sxFor.pnodeBody->nop == knopBlock && outerLoop->sxFor.pnodeBody->sxBlock.HasBlockScopedContent()))
+    {
+        // we can not invert loops if there are block scoped declarations inside
+        return false;
+    }
 
     if ((block != nullptr) && (block->nop == knopBlock))
     {
@@ -4090,38 +4090,38 @@ bool InvertableBlock(ParseNode* block, Symbol* outerVar, ParseNode* innerLoop, P
         {
             if (!GatherInversionSyms(stmt->sxBin.pnode1, outerVar, innerLoop, byteCodeGenerator, symCheck))
             {
-                    return false;
-                }
-            stmt = stmt->sxBin.pnode2;
+                return false;
             }
+            stmt = stmt->sxBin.pnode2;
+        }
 
         if (!GatherInversionSyms(stmt, outerVar, innerLoop, byteCodeGenerator, symCheck))
         {
-                return false;
-            }
+            return false;
+        }
 
         stmt = block->sxBlock.pnodeStmt;
         while ((stmt != nullptr) && (stmt->nop == knopList))
         {
             if (!InvertableStmt(stmt->sxBin.pnode1, outerVar, innerLoop, outerLoop, byteCodeGenerator, symCheck))
             {
-                    return false;
-                }
-            stmt = stmt->sxBin.pnode2;
+                return false;
             }
+            stmt = stmt->sxBin.pnode2;
+        }
 
         if (!InvertableStmt(stmt, outerVar, innerLoop, outerLoop, byteCodeGenerator, symCheck))
         {
-                return false;
-            }
-
-        return (InvertableExprPlus(symCheck, innerLoop->sxFor.pnodeCond, byteCodeGenerator, nullptr) &&
-            InvertableExprPlus(symCheck, outerLoop->sxFor.pnodeCond, byteCodeGenerator, outerVar));
-        }
-    else
-    {
             return false;
         }
+
+        return InvertableExprPlus(symCheck, innerLoop->sxFor.pnodeCond, byteCodeGenerator, nullptr) &&
+               InvertableExprPlus(symCheck, outerLoop->sxFor.pnodeCond, byteCodeGenerator, outerVar);
+    }
+    else
+    {
+        return false;
+    }
 }
 
 // Start of invert loop optimization.
@@ -4229,7 +4229,7 @@ void SetAdditionalBindInfoForVariables(ParseNode *pnode, ByteCodeGenerator *byte
 void Bind(ParseNode *pnode, ByteCodeGenerator *byteCodeGenerator)
 {
     if (pnode == nullptr)
-{
+    {
         return;
     }
 

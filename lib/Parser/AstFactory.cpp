@@ -27,19 +27,19 @@ void VerifyNodeSize(OpCode nop, int size)
 #endif
 
 template <OpCode nop>
-ParseNodePtr AstFactory::CreateNodeT()
+ParseNodePtr AstFactory::CreateNode()
 {
-    return CreateNodeT<nop>(parser->m_pscan != nullptr ? parser->m_pscan->IchMinTok() : 0);
+    return CreateNode<nop>(parser->m_pscan != nullptr ? parser->m_pscan->IchMinTok() : 0);
 }
 
 template <OpCode nop>
-ParseNodePtr AstFactory::CreateNodeT(charcount_t ichMin)
+ParseNodePtr AstFactory::CreateNode(charcount_t ichMin)
 {
-    return CreateNodeT<nop>(ichMin, parser->m_pscan != nullptr ? parser->m_pscan->IchLimTok() : 0);
+    return CreateNode<nop>(ichMin, parser->m_pscan != nullptr ? parser->m_pscan->IchLimTok() : 0);
 }
 
 template <OpCode nop>
-ParseNodePtr AstFactory::CreateNodeT(charcount_t ichMin, charcount_t ichLim)
+ParseNodePtr AstFactory::CreateNode(charcount_t ichMin, charcount_t ichLim)
 {
     Assert(parser->IsNodeAllowedInCurrentDeferralState(nop));
 
@@ -53,7 +53,7 @@ ParseNodePtr AstFactory::CreateNodeT(charcount_t ichMin, charcount_t ichLim)
 }
 
 #define PTNODE(nop,sn,pc,nk,ok,json) \
-    template ParseNodePtr AstFactory::CreateNodeT<nop>();
+    template ParseNodePtr AstFactory::CreateNode<nop>();
 #include "ptlist.h"
 
 
@@ -73,7 +73,7 @@ template <OpCode nop>
 ParseNodePtr AstFactory::CreateNodeWithScanner(charcount_t ichMin)
 {
     Assert(parser->m_pscan != nullptr);
-    return CreateNodeT<nop>(ichMin, parser->m_pscan->IchLimTok());
+    return CreateNode<nop>(ichMin, parser->m_pscan->IchLimTok());
 }
 
 ParseNodePtr AstFactory::CreateStrNodeWithScanner(IdentPtr pid)
@@ -260,7 +260,7 @@ ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
 
 ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid)
 {
-    ParseNodePtr pnode = CreateNodeT<knopName>();
+    ParseNodePtr pnode = CreateNode<knopName>();
     pnode->sxPid.pid = pid;
     pnode->sxPid.sym = nullptr;
     pnode->sxPid.symRef = nullptr;
@@ -269,7 +269,7 @@ ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid)
 
 ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid, charcount_t ichMin, charcount_t ichLim)
 {
-    ParseNodePtr pnode = CreateNodeT<knopName>(ichMin, ichLim);
+    ParseNodePtr pnode = CreateNode<knopName>(ichMin, ichLim);
     pnode->sxPid.pid = pid;
     pnode->sxPid.sym = nullptr;
     pnode->sxPid.symRef = nullptr;
@@ -278,7 +278,7 @@ ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid, charcount_t ichMin, charco
 
 ParseNodePtr AstFactory::CreateBlockNode(PnodeBlockType blockType)
 {
-    ParseNodePtr pnode = CreateNodeT<knopBlock>();
+    ParseNodePtr pnode = CreateNode<knopBlock>();
     InitBlockNode(pnode, parser->m_nextBlockId++, blockType);
     return pnode;
 }
@@ -345,7 +345,7 @@ AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,
 template <OpCode nop>
 ParseNodePtr AstFactory::CreateDeclNode(IdentPtr pid, SymbolType symbolType, bool errorOnRedecl)
 {
-    ParseNodePtr pnode = CreateNodeT<nop>();
+    ParseNodePtr pnode = CreateNode<nop>();
 
     InitDeclNode(pnode, pid);
 
@@ -397,7 +397,7 @@ ParseNodePtr AstFactory::CreateModuleImportDeclNode(IdentPtr localName)
 
 ParseNodePtr AstFactory::CreateParamPatternNode(ParseNodePtr pnode1)
 {
-    ParseNodePtr paramPatternNode = CreateNodeT<knopParamPattern>(pnode1->ichMin, pnode1->ichLim);
+    ParseNodePtr paramPatternNode = CreateNode<knopParamPattern>(pnode1->ichMin, pnode1->ichLim);
     paramPatternNode->sxParamPattern.pnode1 = pnode1;
     paramPatternNode->sxParamPattern.pnodeNext = nullptr;
     paramPatternNode->sxParamPattern.location = Js::Constants::NoRegister;
@@ -433,7 +433,7 @@ ParseNodePtr AstFactory::CreateDummyFuncNode(bool fDeclaration)
     // Do this in situations where we want to parse statements without impacting
     // the state of the "real" AST.
 
-    ParseNodePtr pnodeFnc = CreateNodeT<knopFncDecl>();
+    ParseNodePtr pnodeFnc = CreateNode<knopFncDecl>();
     pnodeFnc->sxFnc.ClearFlags();
     pnodeFnc->sxFnc.SetDeclaration(fDeclaration);
     pnodeFnc->sxFnc.astSize             = 0;
@@ -465,7 +465,7 @@ ParseNodePtr AstFactory::CreateDummyFuncNode(bool fDeclaration)
 
 ParseNodePtr AstFactory::CreateTempNode(ParseNode* initExpr)
 {
-    ParseNodePtr pnode = CreateNodeT<knopTemp>(0);
+    ParseNodePtr pnode = CreateNode<knopTemp>(0);
     pnode->sxVar.pnodeInit = initExpr;
     pnode->sxVar.pnodeNext = nullptr;
     return pnode;

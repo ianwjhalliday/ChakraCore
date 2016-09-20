@@ -15,11 +15,11 @@ public:
     AstFactory(Parser* p) : parser(p) { }
 
     template <OpCode nop>
-    ParseNodePtr CreateNodeT();
+    ParseNodePtr CreateNode();
     template <OpCode nop>
-    ParseNodePtr CreateNodeT(charcount_t ichMin);
+    ParseNodePtr CreateNode(charcount_t ichMin);
     template <OpCode nop>
-    ParseNodePtr CreateNodeT(charcount_t ichMin, charcount_t ichLim);
+    ParseNodePtr CreateNode(charcount_t ichMin, charcount_t ichLim);
 
     template <OpCode nop>
     ParseNodePtr CreateNodeWithScanner();

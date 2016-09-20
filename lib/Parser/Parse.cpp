@@ -267,7 +267,7 @@ HRESULT Parser::ValidateSyntax(LPCUTF8 pszSrc, size_t encodedCharCount, bool isG
 
         m_nextBlockId = 0;
 
-        ParseNode *pnodeFnc = m_ast.CreateNodeT<knopFncDecl>();
+        ParseNode *pnodeFnc = m_ast.CreateNode<knopFncDecl>();
         pnodeFnc->sxFnc.ClearFlags();
         pnodeFnc->sxFnc.SetDeclaration(false);
         pnodeFnc->sxFnc.functionId   = 0;
@@ -2106,7 +2106,7 @@ LDefault:
 
                 // Mark this node as the default module export. We need to make sure it is put into the correct
                 // module export slot when we emit the node.
-                pnode = m_ast.CreateNodeT<knopExportDefault>();
+                pnode = m_ast.CreateNode<knopExportDefault>();
                 pnode->sxExportDefault.pnodeExpr = pnodeExpression;
             }
             break;
@@ -3345,7 +3345,7 @@ template<bool buildAST> void Parser::ParseComputedName(ParseNodePtr* ppnodeName,
     ParseNodePtr pnodeNameExpr = ParseExpr<buildAST>(koplCma, nullptr, TRUE, *ppNameHint, pNameLength, pShortNameOffset);
     if (buildAST)
     {
-        *ppnodeName = m_ast.CreateNodeT<knopComputedName>(pnodeNameExpr->ichMin, pnodeNameExpr->ichLim);
+        *ppnodeName = m_ast.CreateNode<knopComputedName>(pnodeNameExpr->ichMin, pnodeNameExpr->ichLim);
         (*ppnodeName)->sxUni.pnode1 = pnodeNameExpr;
     }
 
@@ -3967,7 +3967,7 @@ ParseNodePtr Parser::ParseFncDecl(ushort flags, LPCOLESTR pNameHint, const bool 
     }
 
     // Create the node.
-    pnodeFnc = m_ast.CreateNodeT<knopFncDecl>();
+    pnodeFnc = m_ast.CreateNode<knopFncDecl>();
     pnodeFnc->sxFnc.ClearFlags();
     pnodeFnc->sxFnc.SetDeclaration(fDeclaration);
     pnodeFnc->sxFnc.astSize             = 0;
@@ -5781,7 +5781,7 @@ ParseNodePtr Parser::GenerateEmptyConstructor(bool extends)
     ParseNodePtr pnodeFnc;
 
     // Create the node.
-    pnodeFnc = m_ast.CreateNodeT<knopFncDecl>();
+    pnodeFnc = m_ast.CreateNode<knopFncDecl>();
     pnodeFnc->sxFnc.ClearFlags();
     pnodeFnc->sxFnc.SetNested(NULL != m_currentNodeFunc);
     pnodeFnc->sxFnc.SetStrictMode();
@@ -6435,7 +6435,7 @@ ParseNodePtr Parser::ParseClassDecl(BOOL isDeclaration, LPCOLESTR pNameHint, uin
     ParseNodePtr pnodeClass = nullptr;
     if (buildAST)
     {
-        pnodeClass = m_ast.CreateNodeT<knopClassDecl>();
+        pnodeClass = m_ast.CreateNode<knopClassDecl>();
 
         CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(Class, m_scriptContext);
     }
@@ -6814,7 +6814,7 @@ ParseNodePtr Parser::ParseStringTemplateDecl(ParseNodePtr pnodeTagFnc)
 
     if (buildAST)
     {
-        pnodeStringTemplate = m_ast.CreateNodeT<knopStrTemplate>();
+        pnodeStringTemplate = m_ast.CreateNode<knopStrTemplate>();
         pnodeStringTemplate->sxStrTemplate.countStringLiterals = 0;
         pnodeStringTemplate->sxStrTemplate.isTaggedTemplate = isTagged ? TRUE : FALSE;
 
@@ -7391,7 +7391,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
                 nop = knopYieldLeaf;
                 if (buildAST)
                 {
-                    pnode = m_ast.CreateNodeT<knopYieldLeaf>(ichMin, m_pscan->IchLimTok());
+                    pnode = m_ast.CreateNode<knopYieldLeaf>(ichMin, m_pscan->IchLimTok());
                 }
             }
         }
@@ -8166,7 +8166,7 @@ ParseNodePtr Parser::ParseTryCatchFinally()
     ParseNodePtr pnodeTF = nullptr;
     if (buildAST)
     {
-        pnodeTF = m_ast.CreateNodeT<knopTryFinally>();
+        pnodeTF = m_ast.CreateNode<knopTryFinally>();
     }
     PushStmt<buildAST>(&stmt, pnodeTF, knopTryFinally, nullptr);
     ParseNodePtr pnodeFinally = ParseFinally<buildAST>();
@@ -8179,7 +8179,7 @@ ParseNodePtr Parser::ParseTryCatchFinally()
         }
         else
         {
-            pnodeTF->sxTryFinally.pnodeTry = m_ast.CreateNodeT<knopTry>();
+            pnodeTF->sxTryFinally.pnodeTry = m_ast.CreateNode<knopTry>();
             pnodeTF->sxTryFinally.pnodeTry->sxStmt.pnodeOuter = pnodeTF;
             pnodeTF->sxTryFinally.pnodeTry->sxTry.pnodeBody = pnodeTC;
             pnodeTC->sxStmt.pnodeOuter = pnodeTF->sxTryFinally.pnodeTry;
@@ -8199,7 +8199,7 @@ ParseNodePtr Parser::ParseTry()
     Assert(tkTRY == m_token.tk);
     if (buildAST)
     {
-        pnode = m_ast.CreateNodeT<knopTry>();
+        pnode = m_ast.CreateNode<knopTry>();
     }
     m_pscan->Scan();
     if (tkLCurly != m_token.tk)
@@ -8227,7 +8227,7 @@ ParseNodePtr Parser::ParseFinally()
     Assert(tkFINALLY == m_token.tk);
     if (buildAST)
     {
-        pnode = m_ast.CreateNodeT<knopFinally>();
+        pnode = m_ast.CreateNode<knopFinally>();
     }
     m_pscan->Scan();
     if (tkLCurly != m_token.tk)
@@ -9148,7 +9148,7 @@ LEndSwitch:
     case tkCONTINUE:
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeT<knopContinue>();
+            pnode = m_ast.CreateNode<knopContinue>();
         }
         fnop = fnopContinue;
 
@@ -10189,7 +10189,7 @@ ParseNodePtr Parser::Parse(LPCUTF8 pszSrc, size_t offset, size_t length, charcou
         if (scopeInfo)
         {
             // Create an enclosing function context.
-            m_currentNodeFunc = m_ast.CreateNodeT<knopFncDecl>();
+            m_currentNodeFunc = m_ast.CreateNode<knopFncDecl>();
             m_currentNodeFunc->sxFnc.pnodeName = nullptr;
             m_currentNodeFunc->sxFnc.functionId = m_functionBody->GetLocalFunctionId();
             m_currentNodeFunc->sxFnc.nestedCount = m_functionBody->GetNestedCount();
@@ -10692,27 +10692,27 @@ ParseNode* Parser::CopyPnode(ParseNode *pnode) {
     break;
       //PTNODE(knopThis       , "this"        ,None    ,None ,fnopLeaf)
   case knopThis:
-    return m_ast.CreateNodeT<knopThis>(pnode->ichMin,pnode->ichLim);
+    return m_ast.CreateNode<knopThis>(pnode->ichMin,pnode->ichLim);
       //PTNODE(knopNull       , "null"        ,Null    ,None ,fnopLeaf)
   case knopNull:
     return pnode;
       //PTNODE(knopFalse      , "false"        ,False   ,None ,fnopLeaf)
   case knopFalse:
     {
-      ParseNode* ret = m_ast.CreateNodeT<knopFalse>(pnode->ichMin, pnode->ichLim);
+      ParseNode* ret = m_ast.CreateNode<knopFalse>(pnode->ichMin, pnode->ichLim);
       ret->location = pnode->location;
       return ret;
     }
       //PTNODE(knopTrue       , "true"        ,True    ,None ,fnopLeaf)
   case knopTrue:
     {
-        ParseNode* ret = m_ast.CreateNodeT<knopTrue>(pnode->ichMin, pnode->ichLim);
+        ParseNode* ret = m_ast.CreateNode<knopTrue>(pnode->ichMin, pnode->ichLim);
         ret->location = pnode->location;
         return ret;
     }
       //PTNODE(knopEmpty      , "empty"        ,Empty   ,None ,fnopLeaf)
   case knopEmpty:
-    return m_ast.CreateNodeT<knopEmpty>(pnode->ichMin,pnode->ichLim);
+    return m_ast.CreateNode<knopEmpty>(pnode->ichMin,pnode->ichLim);
       // Unary operators.
       //PTNODE(knopNot        , "~"            ,BitNot  ,Uni  ,fnopUni)
       //PTNODE(knopNeg        , "unary -"    ,Neg     ,Uni  ,fnopUni)
@@ -10849,7 +10849,7 @@ ParseNode* Parser::CopyPnode(ParseNode *pnode) {
       // General nodes.
       //PTNODE(knopVarDecl    , "varDcl"    ,None    ,Var  ,fnopNone)
     case knopVarDecl: {
-      ParseNode* copyNode=m_ast.CreateNodeT<knopVarDecl>(pnode->ichMin,pnode->ichLim);
+      ParseNode* copyNode=m_ast.CreateNode<knopVarDecl>(pnode->ichMin,pnode->ichLim);
       copyNode->sxVar.pnodeInit=CopyPnode(pnode->sxVar.pnodeInit);
       copyNode->sxVar.sym=pnode->sxVar.sym;
       // TODO: mult-decl
@@ -10871,7 +10871,7 @@ ParseNode* Parser::CopyPnode(ParseNode *pnode) {
     break;
       //PTNODE(knopFor        , "for"        ,None    ,For  ,fnopBreak|fnopContinue)
     case knopFor: {
-      ParseNode* copyNode=m_ast.CreateNodeT<knopFor>(pnode->ichMin,pnode->ichLim);
+      ParseNode* copyNode=m_ast.CreateNode<knopFor>(pnode->ichMin,pnode->ichLim);
       copyNode->sxFor.pnodeInverted=NULL;
       copyNode->sxFor.pnodeInit=CopyPnode(pnode->sxFor.pnodeInit);
       copyNode->sxFor.pnodeCond=CopyPnode(pnode->sxFor.pnodeCond);
@@ -10900,7 +10900,7 @@ ParseNode* Parser::CopyPnode(ParseNode *pnode) {
     break;
       //PTNODE(knopReturn     , "return"    ,None    ,Uni  ,fnopNone)
   case knopReturn: {
-    ParseNode* copyNode=m_ast.CreateNodeT<knopReturn>(pnode->ichMin,pnode->ichLim);
+    ParseNode* copyNode=m_ast.CreateNode<knopReturn>(pnode->ichMin,pnode->ichLim);
     copyNode->sxReturn.pnodeExpr=CopyPnode(pnode->sxReturn.pnodeExpr);
     return copyNode;
   }

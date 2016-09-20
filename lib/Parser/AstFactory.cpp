@@ -28,17 +28,22 @@ void VerifyNodeSize(OpCode nop, int size)
 
 ParseNodePtr AstFactory::CreateNode(OpCode nop)
 {
-    return CreateNode(nop, parser->m_pscan ? parser->m_pscan->IchMinTok() : 0);
+    return CreateNode(nop, parser->m_pscan != nullptr ? parser->m_pscan->IchMinTok() : 0);
 }
 
 ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin)
 {
-    bool nodeAllowed = parser->IsNodeAllowedInCurrentDeferralState(nop);
-    Assert(nodeAllowed);
+    return CreateNode(nop, ichMin, parser->m_pscan != nullptr ? parser->m_pscan->IchLimTok() : 0);
+}
+
+ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin, charcount_t ichLim)
+{
+    Assert(parser->IsNodeAllowedInCurrentDeferralState(nop));
 
     Assert(nop >= 0 && nop < knopLim);
     ParseNodePtr pnode;
-    int cb = (nop >= knopNone && nop < knopLim) ? g_mpnopcbNode[nop] : g_mpnopcbNode[knopEmpty];
+    __analysis_assume(nop < knopLim);
+    int cb = (nop >= knopNone && nop < knopLim) ? g_mpnopcbNode[nop] : kcbPnNone;
 
     pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(cb);
     Assert(pnode != nullptr);
@@ -48,26 +53,6 @@ ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin)
         Assert(parser->m_pCurrentAstSize != nullptr);
         *parser->m_pCurrentAstSize += cb;
     }
-
-    // default min/lim - may be changed
-    InitNode(nop, pnode, ichMin, parser->m_pscan != nullptr ? parser->m_pscan->IchLimTok() : 0);
-
-    return pnode;
-}
-
-ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin, charcount_t ichLim)
-{
-    Assert(!this->parser->m_deferringAST);
-    Assert(nop >= 0 && nop < knopLim);
-    ParseNodePtr pnode;
-    __analysis_assume(nop < knopLim);
-    int cb = nop >= 0 && nop < knopLim ? g_mpnopcbNode[nop] : kcbPnNone;
-
-    pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(cb);
-    Assert(pnode);
-
-    Assert(parser->m_pCurrentAstSize != nullptr);
-    *parser->m_pCurrentAstSize += cb;
 
     InitNode(nop, pnode, ichMin, ichLim);
 

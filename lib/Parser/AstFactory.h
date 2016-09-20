@@ -21,13 +21,8 @@ public:
     template <OpCode nop>
     ParseNodePtr CreateNode(charcount_t ichMin, charcount_t ichLim);
 
-    template <OpCode nop>
-    ParseNodePtr CreateNodeWithScanner();
-    template <OpCode nop>
-    ParseNodePtr CreateNodeWithScanner(charcount_t ichMin);
-
-    ParseNodePtr CreateStrNodeWithScanner(IdentPtr pid);
-    ParseNodePtr CreateIntNodeWithScanner(int32 lw);
+    ParseNodePtr CreateStrNode(IdentPtr pid);
+    ParseNodePtr CreateIntNode(int32 lw);
 
     ParseNodePtr CreateUniNode(OpCode nop, ParseNodePtr pnode1);
     ParseNodePtr CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcount_t ichMin, charcount_t ichLim);
@@ -64,7 +59,7 @@ public:
 
     ParseNodePtr CreateParamPatternNode(ParseNodePtr pnode1);
 
-    ParseNodePtr CreateProgNodeWithScanner(bool isModuleSource);
+    ParseNodePtr CreateProgNode(bool isModuleSource);
 
     ParseNodePtr CreateDummyFuncNode(bool fDeclaration);
 

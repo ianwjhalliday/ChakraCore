@@ -1581,7 +1581,7 @@ ParseNodePtr Parser::ParseMetaProperty(tokens metaParentKeyword, charcount_t ich
         }
         if (buildAST)
         {
-            return m_ast.CreateNodeWithScanner<knopNewTarget>(ichMin);
+            return m_ast.CreateNode<knopNewTarget>(ichMin);
         }
     }
     else
@@ -2390,7 +2390,7 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
     case tkTHIS:
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopThis>();
+            pnode = m_ast.CreateNode<knopThis>();
         }
         fCanAssign = FALSE;
         m_pscan->Scan();
@@ -2416,7 +2416,7 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
 
             if (buildAST)
             {
-                pnode = m_ast.CreateNodeWithScanner<knopEmpty>();
+                pnode = m_ast.CreateNode<knopEmpty>();
             }
             break;
         }
@@ -2460,7 +2460,7 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
 
         if (buildAST)
         {
-            pnode = m_ast.CreateIntNodeWithScanner(m_token.GetLong());
+            pnode = m_ast.CreateIntNode(m_token.GetLong());
         }
         fCanAssign = FALSE;
         m_pscan->Scan();
@@ -2474,7 +2474,7 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
 
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopFlt>();
+            pnode = m_ast.CreateNode<knopFlt>();
             pnode->sxFlt.dbl = m_token.GetDouble();
             pnode->sxFlt.maybeInt = m_token.GetDoubleMayBeInt();
         }
@@ -2490,7 +2490,7 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
 
         if (buildAST)
         {
-            pnode = m_ast.CreateStrNodeWithScanner(m_token.GetStr());
+            pnode = m_ast.CreateStrNode(m_token.GetStr());
         }
         else
         {
@@ -2505,7 +2505,7 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
     case tkTRUE:
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopTrue>();
+            pnode = m_ast.CreateNode<knopTrue>();
         }
         fCanAssign = FALSE;
         m_pscan->Scan();
@@ -2514,7 +2514,7 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
     case tkFALSE:
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopFalse>();
+            pnode = m_ast.CreateNode<knopFalse>();
         }
         fCanAssign = FALSE;
         m_pscan->Scan();
@@ -2523,7 +2523,7 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
     case tkNULL:
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopNull>();
+            pnode = m_ast.CreateNode<knopNull>();
         }
         fCanAssign = FALSE;
         m_pscan->Scan();
@@ -2733,7 +2733,7 @@ ParseNodePtr Parser::ParseRegExp()
         {
             this->m_deferringAST = false;
         }
-        pnode = m_ast.CreateNodeWithScanner<knopRegExp>();
+        pnode = m_ast.CreateNode<knopRegExp>();
         pnode->sxPid.regexPattern = m_token.GetRegex();
         if (m_doingFastScan)
         {
@@ -2926,7 +2926,7 @@ ParseNodePtr Parser::ParsePostfixOperators(
                        !Js::TaggedInt::IsOverflow(uintValue)) // the optimization is not very useful if the number can't be represented as a TaggedInt
                     {
                         // No need to verify that uintValue != JavascriptArray::InvalidIndex since all nonnegative TaggedInts are valid indexes
-                        auto intNode = m_ast.CreateIntNodeWithScanner(uintValue); // implicit conversion from uint32 to int32
+                        auto intNode = m_ast.CreateIntNode(uintValue); // implicit conversion from uint32 to int32
                         pnode->sxBin.pnode2 = intNode;
                     }
                     // Field optimization (see GlobOpt::KillLiveElems) checks for value being a Number,
@@ -2989,7 +2989,7 @@ ParseNodePtr Parser::ParsePostfixOperators(
                 else
                 {
                     Assert(opCode == knopIndex);
-                    name = m_ast.CreateStrNodeWithScanner(m_token.GetIdentifier(m_phtbl));
+                    name = m_ast.CreateStrNode(m_token.GetIdentifier(m_phtbl));
                 }
                 pnode = m_ast.CreateBinNode(opCode, pnode, name);
             }
@@ -3182,7 +3182,7 @@ ParseNodePtr Parser::ParseArrayLiteral()
 
     if (buildAST)
     {
-        pnode = m_ast.CreateNodeWithScanner<knopArray>();
+        pnode = m_ast.CreateNode<knopArray>();
         pnode->sxArrLit.pnode1 = pnode1;
         pnode->sxArrLit.arrayOfTaggedInts = arrayOfTaggedInts;
         pnode->sxArrLit.arrayOfInts = arrayOfInts;
@@ -3237,7 +3237,7 @@ ParseNodePtr Parser::ParseArrayList(bool *pArrayOfTaggedInts, bool *pArrayOfInts
             arrayOfNumbers = false;
             if (buildAST)
             {
-                pnodeArg = m_ast.CreateNodeWithScanner<knopEmpty>();
+                pnodeArg = m_ast.CreateNode<knopEmpty>();
             }
         }
         else
@@ -3384,7 +3384,7 @@ ParseNodePtr Parser::ParseMemberGetSet(OpCode nop, LPCOLESTR* ppNameHint)
         *ppNameHint = pid->Psz();
         if (buildAST)
         {
-            pnodeName = m_ast.CreateStrNodeWithScanner(pid);
+            pnodeName = m_ast.CreateStrNode(pid);
         }
         break;
     case tkStrCon:
@@ -3396,7 +3396,7 @@ ParseNodePtr Parser::ParseMemberGetSet(OpCode nop, LPCOLESTR* ppNameHint)
         *ppNameHint = pid->Psz();
         if (buildAST)
         {
-            pnodeName = m_ast.CreateStrNodeWithScanner(pid);
+            pnodeName = m_ast.CreateStrNode(pid);
         }
         break;
 
@@ -3409,7 +3409,7 @@ ParseNodePtr Parser::ParseMemberGetSet(OpCode nop, LPCOLESTR* ppNameHint)
         pid = m_pscan->PidFromLong(m_token.GetLong());
         if (buildAST)
         {
-            pnodeName = m_ast.CreateStrNodeWithScanner(pid);
+            pnodeName = m_ast.CreateStrNode(pid);
         }
         break;
 
@@ -3422,7 +3422,7 @@ ParseNodePtr Parser::ParseMemberGetSet(OpCode nop, LPCOLESTR* ppNameHint)
         pid = m_pscan->PidFromDbl(m_token.GetDouble());
         if (buildAST)
         {
-            pnodeName = m_ast.CreateStrNodeWithScanner(pid);
+            pnodeName = m_ast.CreateStrNode(pid);
         }
         break;
 
@@ -3553,7 +3553,7 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, uint32* pNameHintLengt
             pidHint = m_token.GetIdentifier(m_phtbl);
             if (buildAST)
             {
-                pnodeName = m_ast.CreateStrNodeWithScanner(pidHint);
+                pnodeName = m_ast.CreateStrNode(pidHint);
             }
             break;
 
@@ -3566,7 +3566,7 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, uint32* pNameHintLengt
             pidHint = m_token.GetStr();
             if (buildAST)
             {
-                pnodeName = m_ast.CreateStrNodeWithScanner(pidHint);
+                pnodeName = m_ast.CreateStrNode(pidHint);
             }
             break;
 
@@ -3580,7 +3580,7 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, uint32* pNameHintLengt
             pidHint = m_pscan->PidFromLong(m_token.GetLong());
             if (buildAST)
             {
-                pnodeName = m_ast.CreateStrNodeWithScanner(pidHint);
+                pnodeName = m_ast.CreateStrNode(pidHint);
             }
             break;
 
@@ -3593,7 +3593,7 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, uint32* pNameHintLengt
             pidHint = m_pscan->PidFromDbl(m_token.GetDouble());
             if (buildAST)
             {
-                pnodeName = m_ast.CreateStrNodeWithScanner(pidHint);
+                pnodeName = m_ast.CreateStrNode(pidHint);
             }
             wrapInBrackets = true;
             break;
@@ -5905,7 +5905,7 @@ ParseNodePtr Parser::GenerateEmptyConstructor(bool extends)
         Assert(argsId);
         ParseNodePtr spreadArg = m_ast.CreateUniNode(knopEllipsis, argsId, pnodeFnc->ichMin, pnodeFnc->ichLim);
 
-        ParseNodePtr superRef = m_ast.CreateNodeWithScanner<knopSuper>();
+        ParseNodePtr superRef = m_ast.CreateNode<knopSuper>();
         pnodeFnc->sxFnc.SetHasSuperReference(TRUE);
 
         ParseNodePtr callNode = m_ast.CreateCallNode(knopCall, superRef, spreadArg);
@@ -5913,7 +5913,7 @@ ParseNodePtr Parser::GenerateEmptyConstructor(bool extends)
         AddToNodeList(&pnodeFnc->sxFnc.pnodeBody, &lastNodeRef, callNode);
     }
 
-    AddToNodeList(&pnodeFnc->sxFnc.pnodeBody, &lastNodeRef, m_ast.CreateNodeWithScanner<knopEndCode>());
+    AddToNodeList(&pnodeFnc->sxFnc.pnodeBody, &lastNodeRef, m_ast.CreateNode<knopEndCode>());
 
     FinishParseBlock(pnodeInnerBlock);
     FinishParseBlock(pnodeBlock);
@@ -5934,7 +5934,7 @@ void Parser::ParseExpressionLambdaBody(ParseNodePtr pnodeLambda)
 
     if (buildAST)
     {
-        pnodeRet = m_ast.CreateNodeWithScanner<knopReturn>();
+        pnodeRet = m_ast.CreateNode<knopReturn>();
         pnodeRet->grfpn |= PNodeFlags::fpnSyntheticNode;
         pnodeLambda->sxFnc.pnodeScopes->sxBlock.pnodeStmt = pnodeRet;
     }
@@ -5961,7 +5961,7 @@ void Parser::ParseExpressionLambdaBody(ParseNodePtr pnodeLambda)
         AddToNodeList(&pnodeLambda->sxFnc.pnodeBody, &lastNodeRef, pnodeLambda->sxFnc.pnodeScopes);
 
         // Append an EndCode node.
-        ParseNodePtr end = m_ast.CreateNodeWithScanner<knopEndCode>(pnodeRet->ichLim);
+        ParseNodePtr end = m_ast.CreateNode<knopEndCode>(pnodeRet->ichLim);
         end->ichLim = end->ichMin; // make end code zero width at the immediate end of lambda body
         AddToNodeList(&pnodeLambda->sxFnc.pnodeBody, &lastNodeRef, end);
 
@@ -6217,7 +6217,7 @@ void Parser::FinishFncDecl(ParseNodePtr pnodeFnc, LPCOLESTR pNameHint, ParseNode
 
     ParseStmtList<true>(&pnodeFnc->sxFnc.pnodeBody, &lastNodeRef, SM_OnFunctionCode, true /* isSourceElementList */);
     // Append an EndCode node.
-    AddToNodeList(&pnodeFnc->sxFnc.pnodeBody, &lastNodeRef, m_ast.CreateNodeWithScanner<knopEndCode>());
+    AddToNodeList(&pnodeFnc->sxFnc.pnodeBody, &lastNodeRef, m_ast.CreateNode<knopEndCode>());
 
     if (!skipCurlyBraces)
     {
@@ -6577,7 +6577,7 @@ ParseNodePtr Parser::ParseClassDecl(BOOL isDeclaration, LPCOLESTR pNameHint, uin
 
         if (buildAST && memberPid)
         {
-            pnodeMemberName = m_ast.CreateStrNodeWithScanner(memberPid);
+            pnodeMemberName = m_ast.CreateStrNode(memberPid);
         }
 
         if (!isStatic && memberPid == wellKnownPropertyPids.constructor)
@@ -6662,7 +6662,7 @@ ParseNodePtr Parser::ParseClassDecl(BOOL isDeclaration, LPCOLESTR pNameHint, uin
                 }
                 if (buildAST && memberPid && !isComputedName)
                 {
-                    pnodeMemberName = m_ast.CreateStrNodeWithScanner(memberPid);
+                    pnodeMemberName = m_ast.CreateStrNode(memberPid);
                 }
 
                 ParseNodePtr pnodeFnc = nullptr;
@@ -6861,7 +6861,7 @@ ParseNodePtr Parser::ParseStringTemplateDecl(ParseNodePtr pnodeTagFnc)
         // If we are not creating parse nodes, there is no need to create strings
         if (buildAST)
         {
-            stringLiteral = m_ast.CreateStrNodeWithScanner(m_token.GetStr());
+            stringLiteral = m_ast.CreateStrNode(m_token.GetStr());
 
             AddToNodeList(&pnodeStringLiterals, &lastStringLiteralNodeRef, stringLiteral);
 
@@ -6871,7 +6871,7 @@ ParseNodePtr Parser::ParseStringTemplateDecl(ParseNodePtr pnodeTagFnc)
                 // Make the scanner create a PID for the raw string constant for the preceding scan
                 IdentPtr pid = m_pscan->GetSecondaryBufferAsPid();
 
-                stringLiteralRaw = m_ast.CreateStrNodeWithScanner(pid);
+                stringLiteralRaw = m_ast.CreateStrNode(pid);
 
                 // Should have gotten a raw string literal above
                 AddToNodeList(&pnodeRawStringLiterals, &lastRawStringLiteralNodeRef, stringLiteralRaw);
@@ -8140,7 +8140,7 @@ ParseNodePtr Parser::ParseTryCatchFinally()
         hasCatch = true;
         if (buildAST)
         {
-            pnodeTC = m_ast.CreateNodeWithScanner<knopTryCatch>();
+            pnodeTC = m_ast.CreateNode<knopTryCatch>();
             pnodeT->sxStmt.pnodeOuter = pnodeTC;
             pnodeTC->sxTryCatch.pnodeTry = pnodeT;
         }
@@ -8242,7 +8242,7 @@ ParseNodePtr Parser::ParseFinally()
         pnode->sxFinally.pnodeBody = pnodeBody;
         if (!pnode->sxFinally.pnodeBody)
             // Will only occur due to error correction.
-            pnode->sxFinally.pnodeBody = m_ast.CreateNodeWithScanner<knopEmpty>();
+            pnode->sxFinally.pnodeBody = m_ast.CreateNode<knopEmpty>();
         else
             pnode->ichLim = pnode->sxFinally.pnodeBody->ichLim;
     }
@@ -8284,7 +8284,7 @@ ParseNodePtr Parser::ParseCatch()
 
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopCatch>(ichMin);
+            pnode = m_ast.CreateNode<knopCatch>(ichMin);
             PushStmt<buildAST>(&stmt, pnode, knopCatch, nullptr);
             *ppnode = pnode;
             ppnode = &pnode->sxCatch.pnodeNext;
@@ -8406,7 +8406,7 @@ ParseNodePtr Parser::ParseCase(ParseNodePtr *ppnodeBody)
 
     if (buildAST)
     {
-        pnodeT = m_ast.CreateNodeWithScanner<knopCase>(ichMinT);
+        pnodeT = m_ast.CreateNode<knopCase>(ichMinT);
         pnodeT->sxCase.pnodeExpr = pnodeExpr;
         pnodeT->ichLim = ichLim;
     }
@@ -8466,11 +8466,11 @@ ParseNodePtr Parser::ParseStatement()
             // create and push the try-catch node
             pParentTryCatchBlock = m_ast.CreateBlockNode();
             PushStmt<buildAST>(&stmtTryCatchBlock, pParentTryCatchBlock, knopBlock, nullptr);
-            pParentTryCatch = m_ast.CreateNodeWithScanner<knopTryCatch>();
+            pParentTryCatch = m_ast.CreateNode<knopTryCatch>();
             PushStmt<buildAST>(&stmtTryCatch, pParentTryCatch, knopTryCatch, nullptr);
 
             // create and push a try node
-            pTry = m_ast.CreateNodeWithScanner<knopTry>();
+            pTry = m_ast.CreateNode<knopTry>();
             PushStmt<buildAST>(&stmtTry, pTry, knopTry, nullptr);
             pTryBlock = m_ast.CreateBlockNode();
             PushStmt<buildAST>(&stmtTryBlock, pTryBlock, knopBlock, nullptr);
@@ -8731,11 +8731,11 @@ LDefaultTokenFor:
             {
                 if (isForOf)
                 {
-                    pnode = m_ast.CreateNodeWithScanner<knopForOf>(ichMin);
+                    pnode = m_ast.CreateNode<knopForOf>(ichMin);
                 }
                 else
                 {
-                    pnode = m_ast.CreateNodeWithScanner<knopForIn>(ichMin);
+                    pnode = m_ast.CreateNode<knopForIn>(ichMin);
                 }
                 pnode->sxForInOrForOf.pnodeBlock = pnodeBlock;
                 pnode->sxForInOrForOf.pnodeLval = pnodeT;
@@ -8794,7 +8794,7 @@ LDefaultTokenFor:
 
             if (buildAST)
             {
-                pnode = m_ast.CreateNodeWithScanner<knopFor>(ichMin);
+                pnode = m_ast.CreateNode<knopFor>(ichMin);
                 pnode->sxFor.pnodeBlock = pnodeBlock;
                 pnode->sxFor.pnodeInverted= nullptr;
                 pnode->sxFor.pnodeInit = pnodeT;
@@ -8838,7 +8838,7 @@ LDefaultTokenFor:
 
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopSwitch>(ichMin);
+            pnode = m_ast.CreateNode<knopSwitch>(ichMin);
         }
         PushStmt<buildAST>(&stmt, pnode, knopSwitch, pLabelIdList);
         pnodeBlock = StartParseBlock<buildAST>(PnodeBlockType::Regular, ScopeType_Block);
@@ -8879,7 +8879,7 @@ LDefaultTokenFor:
                 ChkCurTok(tkColon, ERRnoColon);
                 if (buildAST)
                 {
-                    pnodeT = m_ast.CreateNodeWithScanner<knopCase>(ichMinT);
+                    pnodeT = m_ast.CreateNode<knopCase>(ichMinT);
                     pnode->sxSwitch.pnodeDefault = pnodeT;
                     pnodeT->ichLim = ichMinInner;
                     pnodeT->sxCase.pnodeExpr = nullptr;
@@ -8933,7 +8933,7 @@ LEndSwitch:
 
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopWhile>(ichMin);
+            pnode = m_ast.CreateNode<knopWhile>(ichMin);
             pnode->sxWhile.pnodeCond = pnodeCond;
             pnode->ichLim = ichLim;
         }
@@ -8952,7 +8952,7 @@ LEndSwitch:
     {
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopDoWhile>();
+            pnode = m_ast.CreateNode<knopDoWhile>();
         }
         PushStmt<buildAST>(&stmt, pnode, knopDoWhile, pLabelIdList);
         m_pscan->Scan();
@@ -9002,7 +9002,7 @@ LEndSwitch:
         ParseNodePtr pnodeCond = ParseExpr<buildAST>();
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopIf>(ichMin);
+            pnode = m_ast.CreateNode<knopIf>(ichMin);
             pnode->ichLim = m_pscan->IchLimTok();
             pnode->sxIf.pnodeCond = pnodeCond;
         }
@@ -9065,7 +9065,7 @@ LEndSwitch:
 
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopWith>(ichMin);
+            pnode = m_ast.CreateNode<knopWith>(ichMin);
         }
         PushStmt<buildAST>(&stmt, pnode, knopWith, pLabelIdList);
 
@@ -9140,7 +9140,7 @@ LEndSwitch:
     case tkBREAK:
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopBreak>();
+            pnode = m_ast.CreateNode<knopBreak>();
         }
         fnop = fnopBreak;
         goto LGetJumpStatement;
@@ -9281,7 +9281,7 @@ LGetJumpStatement:
             {
                 Error(ERRbadReturn);
             }
-            pnode = m_ast.CreateNodeWithScanner<knopReturn>();
+            pnode = m_ast.CreateNode<knopReturn>();
         }
         m_pscan->Scan();
         ParseNodePtr pnodeExpr = nullptr;
@@ -9344,7 +9344,7 @@ LGetJumpStatement:
     case tkDEBUGGER:
         if (buildAST)
         {
-            pnode = m_ast.CreateNodeWithScanner<knopDebugger>();
+            pnode = m_ast.CreateNode<knopDebugger>();
         }
         m_pscan->Scan();
         goto LNeedTerminator;
@@ -9505,7 +9505,7 @@ LNeedTerminator:
             // create a catch block with an empty body
             StmtNest stmtCatch;
             ParseNodePtr pCatch;
-            pCatch = m_ast.CreateNodeWithScanner<knopCatch>();
+            pCatch = m_ast.CreateNode<knopCatch>();
             PushStmt<buildAST>(&stmtCatch, pCatch, knopCatch, nullptr);
             pCatch->sxCatch.pnodeBody = nullptr;
             if(pnode != nullptr)
@@ -10099,7 +10099,7 @@ ParseNodePtr Parser::Parse(LPCUTF8 pszSrc, size_t offset, size_t length, charcou
     // Make the main 'knopProg' node
     int32 initSize = 0;
     m_pCurrentAstSize = &initSize;
-    pnodeProg = m_ast.CreateProgNodeWithScanner(isModuleSource);
+    pnodeProg = m_ast.CreateProgNode(isModuleSource);
     pnodeProg->grfpn = PNodeFlags::fpnNone;
     pnodeProg->sxFnc.pid = nullptr;
     pnodeProg->sxFnc.pnodeName = nullptr;
@@ -10236,7 +10236,7 @@ ParseNodePtr Parser::Parse(LPCUTF8 pszSrc, size_t offset, size_t length, charcou
 
     // Append an EndCode node.
     AddToNodeList(&pnodeProg->sxFnc.pnodeBody, &lastNodeRef,
-        m_ast.CreateNodeWithScanner<knopEndCode>());
+        m_ast.CreateNode<knopEndCode>());
     Assert((*lastNodeRef)->nop == knopEndCode);
     (*lastNodeRef)->ichMin = 0;
     (*lastNodeRef)->ichLim = 0;
@@ -10529,7 +10529,7 @@ HRESULT Parser::ParseFunctionInBackground(ParseNodePtr pnodeFnc, ParseContext *p
             ParseStmtList<true>(&pnodeFnc->sxFnc.pnodeBody, &lastNodeRef, SM_OnFunctionCode, true);
             AddArgumentsNodeToVars(pnodeFnc);
             // Append an EndCode node.
-            AddToNodeList(&pnodeFnc->sxFnc.pnodeBody, &lastNodeRef, m_ast.CreateNodeWithScanner<knopEndCode>());
+            AddToNodeList(&pnodeFnc->sxFnc.pnodeBody, &lastNodeRef, m_ast.CreateNode<knopEndCode>());
         }
 
         // Restore the scanner's default hashing mode.
@@ -10985,7 +10985,7 @@ ParseNodePtr Parser::ParseSuper(ParseNodePtr pnode, bool fAllowCall)
     ParseNodePtr currentNodeFunc = GetCurrentFunctionNode();
 
     if (buildAST) {
-        pnode = m_ast.CreateNodeWithScanner<knopSuper>();
+        pnode = m_ast.CreateNode<knopSuper>();
     }
 
     m_pscan->ScanForcingPid();
@@ -11316,7 +11316,7 @@ ParseNodePtr Parser::ParseDestructuredInitializer(ParseNodePtr lhsNode,
     {
         Assert(lhsNode != nullptr);
 
-        pnodeDestructAsg = m_ast.CreateNodeWithScanner<knopAsg>();
+        pnodeDestructAsg = m_ast.CreateNode<knopAsg>();
         pnodeDestructAsg->sxBin.pnode1 = lhsNode;
         pnodeDestructAsg->sxBin.pnode2 = pnodeDefault;
         pnodeDestructAsg->ichMin = lhsNode->ichMin;
@@ -11473,7 +11473,7 @@ ParseNodePtr Parser::ParseDestructuredVarDecl(tokens declarationType, bool isDec
 
     if (buildAST && seenRest)
     {
-        ParseNodePtr pnodeRest = m_ast.CreateNodeWithScanner<knopEllipsis>();
+        ParseNodePtr pnodeRest = m_ast.CreateNode<knopEllipsis>();
         pnodeRest->sxUni.pnode1 = pnodeElem;
         pnodeElem = pnodeRest;
     }
@@ -11524,7 +11524,7 @@ ParseNodePtr Parser::ParseDestructuredArrayLiteral(tokens declarationType, bool 
             {
                 if (pnodeElem == nullptr && buildAST)
                 {
-                    pnodeElem = m_ast.CreateNodeWithScanner<knopEmpty>();
+                    pnodeElem = m_ast.CreateNode<knopEmpty>();
                     hasMissingValues = true;
                 }
                 AddToNodeListEscapedUse(&pnodeList, &lastNodeRef, pnodeElem);
@@ -11558,7 +11558,7 @@ ParseNodePtr Parser::ParseDestructuredArrayLiteral(tokens declarationType, bool 
 
     if (buildAST)
     {
-        pnodeDestructArr = m_ast.CreateNodeWithScanner<knopArrayPattern>();
+        pnodeDestructArr = m_ast.CreateNode<knopArrayPattern>();
         pnodeDestructArr->sxArrLit.pnode1 = pnodeList;
         pnodeDestructArr->sxArrLit.arrayOfTaggedInts = false;
         pnodeDestructArr->sxArrLit.arrayOfInts = false;

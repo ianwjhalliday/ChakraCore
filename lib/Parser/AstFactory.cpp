@@ -22,13 +22,13 @@ void VerifyNodeSize(OpCode nop, int size)
 template <OpCode nop>
 ParseNodePtr AstFactory::CreateNode()
 {
-    return CreateNode<nop>(parser->m_pscan != nullptr ? parser->m_pscan->IchMinTok() : 0);
+    return CreateNode<nop>(parser->m_pscan->IchMinTok());
 }
 
 template <OpCode nop>
 ParseNodePtr AstFactory::CreateNode(charcount_t ichMin)
 {
-    return CreateNode<nop>(ichMin, parser->m_pscan != nullptr ? parser->m_pscan->IchLimTok() : 0);
+    return CreateNode<nop>(ichMin, parser->m_pscan->IchLimTok());
 }
 
 template <OpCode nop>
@@ -50,39 +50,20 @@ ParseNodePtr AstFactory::CreateNode(charcount_t ichMin, charcount_t ichLim)
 #include "ptlist.h"
 
 
-// Create Node with scanner limit
-template <OpCode nop>
-ParseNodePtr AstFactory::CreateNodeWithScanner()
-{
-    Assert(parser->m_pscan != nullptr);
-    return CreateNodeWithScanner<nop>(parser->m_pscan->IchMinTok());
-}
-
-#define PTNODE(nop,sn,pc,nk,ok,json) \
-    template ParseNodePtr AstFactory::CreateNodeWithScanner<nop>();
-#include "ptlist.h"
-
-template <OpCode nop>
-ParseNodePtr AstFactory::CreateNodeWithScanner(charcount_t ichMin)
-{
-    Assert(parser->m_pscan != nullptr);
-    return CreateNode<nop>(ichMin, parser->m_pscan->IchLimTok());
-}
-
-ParseNodePtr AstFactory::CreateStrNodeWithScanner(IdentPtr pid)
+ParseNodePtr AstFactory::CreateStrNode(IdentPtr pid)
 {
     Assert(!this->parser->m_deferringAST);
 
-    ParseNodePtr pnode = CreateNodeWithScanner<knopStr>();
+    ParseNodePtr pnode = CreateNode<knopStr>();
     pnode->sxPid.pid = pid;
     pnode->grfpn |= PNodeFlags::fpnCanFlattenConcatExpr;
     return pnode;
 }
 
-ParseNodePtr AstFactory::CreateIntNodeWithScanner(int32 lw)
+ParseNodePtr AstFactory::CreateIntNode(int32 lw)
 {
     Assert(!this->parser->m_deferringAST);
-    ParseNodePtr pnode = CreateNodeWithScanner<knopInt>();
+    ParseNodePtr pnode = CreateNode<knopInt>();
     pnode->sxInt.lw = lw;
     return pnode;
 }
@@ -338,7 +319,13 @@ AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,
 template <OpCode nop>
 ParseNodePtr AstFactory::CreateDeclNode(IdentPtr pid, SymbolType symbolType, bool errorOnRedecl)
 {
-    ParseNodePtr pnode = CreateNode<nop>();
+    // CreateDeclNode is actually used by the bytecode generator when
+    // parser->m_pscan is null, so pass min/lim explicitly with default
+    // zero values. This and CreateTempNode are the only cases where we
+    // call CreateNode without a scanner present.
+    charcount_t ichMin = parser->m_pscan != nullptr ? parser->m_pscan->IchMinTok() : 0;
+    charcount_t ichLim = parser->m_pscan != nullptr ? parser->m_pscan->IchLimTok() : 0;
+    ParseNodePtr pnode = CreateNode<nop>(ichMin, ichLim);
 
     InitDeclNode(pnode, pid);
 
@@ -397,13 +384,13 @@ ParseNodePtr AstFactory::CreateParamPatternNode(ParseNodePtr pnode1)
     return paramPatternNode;
 }
 
-ParseNodePtr AstFactory::CreateProgNodeWithScanner(bool isModuleSource)
+ParseNodePtr AstFactory::CreateProgNode(bool isModuleSource)
 {
     ParseNodePtr pnodeProg;
 
     if (isModuleSource)
     {
-        pnodeProg = CreateNodeWithScanner<knopModule>();
+        pnodeProg = CreateNode<knopModule>();
 
         // knopModule is not actually handled anywhere since we would need to handle it everywhere we could
         // have knopProg and it would be treated exactly the same except for import/export statements.
@@ -414,7 +401,7 @@ ParseNodePtr AstFactory::CreateProgNodeWithScanner(bool isModuleSource)
     }
     else
     {
-        pnodeProg = CreateNodeWithScanner<knopProg>();
+        pnodeProg = CreateNode<knopProg>();
     }
 
     return pnodeProg;
@@ -458,7 +445,11 @@ ParseNodePtr AstFactory::CreateDummyFuncNode(bool fDeclaration)
 
 ParseNodePtr AstFactory::CreateTempNode(ParseNode* initExpr)
 {
-    ParseNodePtr pnode = CreateNode<knopTemp>(0);
+    // CreateTempNode is actually used by the bytecode generator when
+    // parser->m_pscan is null, so pass min/lim explicitly with default
+    // zero values. This and CreateDeclNode are the only cases where we
+    // call CreateNode without a scanner present.
+    ParseNodePtr pnode = CreateNode<knopTemp>(0, 0);
     pnode->sxVar.pnodeInit = initExpr;
     pnode->sxVar.pnodeNext = nullptr;
     return pnode;

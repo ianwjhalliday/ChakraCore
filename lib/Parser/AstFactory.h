@@ -87,6 +87,8 @@ private:
     template <OpCode nop>
     ParseNodePtr CreateBlockScopedDeclNode(IdentPtr pid);
 
+    void ChooseOpMinLim(ParseNodePtr pnode1, ParseNodePtr pnode2, ParseNodePtr pnode3, charcount_t* pichMin, charcount_t* pichLim);
+
     static void InitNode(OpCode nop, ParseNodePtr pnode, charcount_t ichMin, charcount_t ichLim);
     static void InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType);
     static void InitDeclNode(ParseNodePtr pnode, IdentPtr name);

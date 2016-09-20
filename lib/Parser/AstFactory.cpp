@@ -70,35 +70,17 @@ ParseNodePtr AstFactory::CreateIntNode(int32 lw)
 
 ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1)
 {
-    Assert(!this->parser->m_deferringAST);
-    DebugOnly(VerifyNodeSize(nop, kcbPnUni));
-    ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(kcbPnUni);
-
-    Assert(parser->m_pCurrentAstSize != nullptr);
-    *parser->m_pCurrentAstSize += kcbPnUni;
-
     charcount_t ichMin;
     charcount_t ichLim;
-    if (nullptr == pnode1)
-    {
-        // no ops
-        ichMin = parser->m_pscan->IchMinTok();
-        ichLim = parser->m_pscan->IchLimTok();
-    }
-    else
-    {
-        // 1 op
-        ichMin = pnode1->ichMin;
-        ichLim = pnode1->ichLim;
-    }
+    ChooseOpMinLim(pnode1, nullptr, nullptr, &ichMin, &ichLim);
 
-    InitNode(nop, pnode, ichMin, ichLim);
-
-    pnode->sxUni.pnode1 = pnode1;
+    ParseNodePtr pnode = CreateUniNode(nop, pnode1, ichMin, ichLim);
 
     if (pnode1 != nullptr)
     {
         // Checking for the `arguments` identifier shouldn't be the responsibility of AstFactory
+        // Review: this is also not performed in the other overload of CreateUniNode below
+        // Review: is this supposed to check `pnode` or `pnode1`?  BinOp checks its operands, not itself!
         this->parser->CheckArguments(pnode);
     }
 
@@ -124,38 +106,16 @@ ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcoun
 
 ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2)
 {
-    Assert(!this->parser->m_deferringAST);
     charcount_t ichMin;
     charcount_t ichLim;
+    ChooseOpMinLim(pnode1, pnode2, nullptr, &ichMin, &ichLim);
 
-    if (nullptr == pnode1)
+    if (pnode1 != nullptr && nop != knopDot && nop != knopIndex)
     {
-        // no ops
-        Assert(nullptr == pnode2);
-        ichMin = parser->m_pscan->IchMinTok();
-        ichLim = parser->m_pscan->IchLimTok();
-    }
-    else
-    {
-        if (nullptr == pnode2)
+        this->parser->CheckArguments(pnode1);
+        if (pnode2 != nullptr)
         {
-            // 1 op
-            ichMin = pnode1->ichMin;
-            ichLim = pnode1->ichLim;
-        }
-        else
-        {
-            // 2 ops
-            ichMin = pnode1->ichMin;
-            ichLim = pnode2->ichLim;
-            if (nop != knopDot && nop != knopIndex)
-            {
-                this->parser->CheckArguments(pnode2);
-            }
-        }
-        if (nop != knopDot && nop != knopIndex)
-        {
-            this->parser->CheckArguments(pnode1);
+            this->parser->CheckArguments(pnode2);
         }
     }
 
@@ -174,45 +134,16 @@ ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1,
     return pnode;
 }
 
-ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
-                                       ParseNodePtr pnode2, ParseNodePtr pnode3)
+ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, ParseNodePtr pnode3)
 {
     charcount_t ichMin;
     charcount_t ichLim;
-
-    if (nullptr == pnode1)
-    {
-        // no ops
-        Assert(nullptr == pnode2);
-        Assert(nullptr == pnode3);
-        ichMin = parser->m_pscan->IchMinTok();
-        ichLim = parser->m_pscan->IchLimTok();
-    }
-    else if (nullptr == pnode2)
-    {
-        // 1 op
-        Assert(nullptr == pnode3);
-        ichMin = pnode1->ichMin;
-        ichLim = pnode1->ichLim;
-    }
-    else if (nullptr == pnode3)
-    {
-        // 2 op
-        ichMin = pnode1->ichMin;
-        ichLim = pnode2->ichLim;
-    }
-    else
-    {
-        // 3 ops
-        ichMin = pnode1->ichMin;
-        ichLim = pnode3->ichLim;
-    }
+    ChooseOpMinLim(pnode1, pnode2, pnode3, &ichMin, &ichLim);
 
     return CreateTriNode(nop, pnode1, pnode2, pnode3, ichMin, ichLim);
 }
 
-ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
-                                       ParseNodePtr pnode2, ParseNodePtr pnode3,
+ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, ParseNodePtr pnode3,
                                        charcount_t ichMin, charcount_t ichLim)
 {
     Assert(!this->parser->m_deferringAST);
@@ -266,30 +197,13 @@ ParseNodePtr AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNo
 {
     charcount_t ichMin;
     charcount_t ichLim;
+    ChooseOpMinLim(pnode1, pnode2, nullptr, &ichMin, &ichLim);
 
-    if (nullptr == pnode1)
+    if (pnode1 != nullptr && (pnode1->nop == knopDot || pnode1->nop == knopIndex))
     {
-        Assert(nullptr == pnode2);
-        ichMin = parser->m_pscan->IchMinTok();
-        ichLim = parser->m_pscan->IchLimTok();
+        this->parser->CheckArguments(pnode1->sxBin.pnode1);
     }
-    else
-    {
-        if (nullptr == pnode2)
-        {
-            ichMin = pnode1->ichMin;
-            ichLim = pnode1->ichLim;
-        }
-        else
-        {
-            ichMin = pnode1->ichMin;
-            ichLim = pnode2->ichLim;
-        }
-        if (pnode1->nop == knopDot || pnode1->nop == knopIndex)
-        {
-            this->parser->CheckArguments(pnode1->sxBin.pnode1);
-        }
-    }
+
     return CreateCallNode(nop, pnode1, pnode2, ichMin, ichLim);
 }
 
@@ -513,6 +427,37 @@ ParseNodePtr AstFactory::CreateBlockScopedDeclNode(IdentPtr pid)
     }
 
     return pnode;
+}
+
+void AstFactory::ChooseOpMinLim(ParseNodePtr pnode1, ParseNodePtr pnode2, ParseNodePtr pnode3, charcount_t* pichMin, charcount_t* pichLim)
+{
+    if (pnode3 != nullptr)
+    {
+        Assert(pnode1 != nullptr);
+        Assert(pnode2 != nullptr);
+        // 3 ops
+        *pichMin = pnode1->ichMin;
+        *pichLim = pnode3->ichLim;
+    }
+    else if (pnode2 != nullptr)
+    {
+        Assert(pnode1 != nullptr);
+        // 2 ops
+        *pichMin = pnode1->ichMin;
+        *pichLim = pnode2->ichLim;
+    }
+    else if (pnode1 != nullptr)
+    {
+        // 1 op
+        *pichMin = pnode1->ichMin;
+        *pichLim = pnode1->ichLim;
+    }
+    else
+    {
+        // no ops
+        *pichMin = parser->m_pscan->IchMinTok();
+        *pichLim = parser->m_pscan->IchLimTok();
+    }
 }
 
 void AstFactory::InitNode(OpCode nop, ParseNodePtr pnode, charcount_t ichMin, charcount_t ichLim)

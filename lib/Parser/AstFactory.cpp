@@ -4,20 +4,13 @@
 //-------------------------------------------------------------------------------------------------------
 #include "ParserPch.h"
 
-/*****************************************************************************
-The following set of routines allocate parse tree nodes of various kinds.
-They catch an exception on out of memory.
-*****************************************************************************/
+#if DBG
 static const int g_mpnopcbNode[] =
 {
 #define PTNODE(nop,sn,pc,nk,ok,json) kcbPn##nk,
 #include "ptlist.h"
 };
 
-const Js::RegSlot NoRegister = (Js::RegSlot)-1;
-const Js::RegSlot OneByteRegister = (Js::RegSlot_OneByte)-1;
-
-#if DBG
 void VerifyNodeSize(OpCode nop, int size)
 {
     Assert(nop >= 0 && nop < knopLim);
@@ -537,7 +530,7 @@ void AstFactory::InitNode(OpCode nop, ParseNodePtr pnode, charcount_t ichMin, ch
     pnode->grfpn = PNodeFlags::fpnNone;
     pnode->ichMin = ichMin;
     pnode->ichLim = ichLim;
-    pnode->location = NoRegister;
+    pnode->location = Js::Constants::NoRegister;
     pnode->isUsed = true;
     pnode->emitLabels = false;
     pnode->notEscapedUse = false;

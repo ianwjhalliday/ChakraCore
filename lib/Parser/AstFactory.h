@@ -14,60 +14,40 @@ private:
 public:
     AstFactory(Parser* p) : parser(p) { }
 
-    // create nodes using arena allocator; used by AST transformation
-    template <OpCode nop>
-    static ParseNodePtr StaticCreateNodeT(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0)
-    {
-        ParseNodePtr pnode = StaticAllocNode<nop>(alloc);
-        // default min/lim - may be changed
-        InitNode(nop, pnode, ichMin, ichLim);
-
-        return pnode;
-    }
-
-    static ParseNodePtr StaticCreateBinNode(ArenaAllocator* alloc, OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, charcount_t ichMin = 0, charcount_t ichLim = 0);
-    static ParseNodePtr StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0, int blockId = -1, PnodeBlockType blockType = PnodeBlockType::Regular);
-    ParseNodePtr CreateNode(OpCode nop, charcount_t ichMin, charcount_t ichLim);
-    ParseNodePtr CreateDummyFuncNode(bool fDeclaration);
-
-
-    ParseNodePtr CreateTriNode(OpCode nop, ParseNodePtr pnode1,
-                               ParseNodePtr pnode2, ParseNodePtr pnode3,
-                               charcount_t ichMin, charcount_t ichLim);
-    ParseNodePtr CreateTempNode(ParseNode* initExpr);
-    ParseNodePtr CreateTempRef(ParseNode* tempNode);
-
     ParseNodePtr CreateNode(OpCode nop);
-    ParseNodePtr CreateDeclNode(OpCode nop, IdentPtr pid, SymbolType symbolType, bool errorOnRedecl = true);
-
-    ParseNodePtr CreateNameNode(IdentPtr pid)
-    {
-        ParseNodePtr pnode = CreateNode(knopName);
-        pnode->sxPid.pid = pid;
-        pnode->sxPid.sym = NULL;
-        pnode->sxPid.symRef = NULL;
-        return pnode;
-    }
-    ParseNodePtr CreateBlockNode(PnodeBlockType blockType = PnodeBlockType::Regular);
-    // Creating parse nodes.
-
     ParseNodePtr CreateNode(OpCode nop, charcount_t ichMin);
-    ParseNodePtr CreateTriNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, ParseNodePtr pnode3);
-
-    ParseNodePtr CreateUniNode(OpCode nop, ParseNodePtr pnodeOp);
-    ParseNodePtr CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2);
-    ParseNodePtr CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2);
-
-    // Create parse node with token limis
+    ParseNodePtr CreateNode(OpCode nop, charcount_t ichMin, charcount_t ichLim);
     template <OpCode nop>
     ParseNodePtr CreateNodeT(charcount_t ichMin, charcount_t ichLim);
+
+    template <OpCode nop>
+    ParseNodePtr CreateNodeWithScanner();
+    template <OpCode nop>
+    ParseNodePtr CreateNodeWithScanner(charcount_t ichMin);
+
+    ParseNodePtr CreateStrNodeWithScanner(IdentPtr pid);
+    ParseNodePtr CreateIntNodeWithScanner(int32 lw);
+
+    ParseNodePtr CreateUniNode(OpCode nop, ParseNodePtr pnode1);
     ParseNodePtr CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcount_t ichMin, charcount_t ichLim);
-    ParseNodePtr CreateBlockNode(charcount_t ichMin, charcount_t ichLim, PnodeBlockType blockType = PnodeBlockType::Regular);
+
+    ParseNodePtr CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2);
+    ParseNodePtr CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim);
+
+    ParseNodePtr CreateTriNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, ParseNodePtr pnode3);
+    ParseNodePtr CreateTriNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, ParseNodePtr pnode3, charcount_t ichMin, charcount_t ichLim);
+
+    // CreateNameNode(IdentPtr) used to be defined inline; check if perf regression
+    ParseNodePtr CreateNameNode(IdentPtr pid);
     ParseNodePtr CreateNameNode(IdentPtr pid, charcount_t ichMin, charcount_t ichLim);
-    ParseNodePtr CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,
-                               charcount_t ichMin, charcount_t ichLim);
-    ParseNodePtr CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,
-                                charcount_t ichMin, charcount_t ichLim);
+
+    ParseNodePtr CreateBlockNode(PnodeBlockType blockType = PnodeBlockType::Regular);
+    ParseNodePtr CreateBlockNode(charcount_t ichMin, charcount_t ichLim, PnodeBlockType blockType = PnodeBlockType::Regular);
+
+    ParseNodePtr CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2);
+    ParseNodePtr CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim);
+
+    ParseNodePtr CreateDeclNode(OpCode nop, IdentPtr pid, SymbolType symbolType, bool errorOnRedecl = true);
 
     // Add a var declaration. Only use while parsing. Assumes m_ppnodeVar is pointing to the right place already
     ParseNodePtr CreateVarDeclNode(IdentPtr pid, SymbolType symbolType, bool autoArgumentsObject = false, ParseNodePtr pnodeFnc = NULL, bool checkReDecl = true);
@@ -81,11 +61,27 @@ public:
 
     ParseNodePtr CreateParamPatternNode(ParseNodePtr pnode1);
 
-    template <OpCode nop> ParseNodePtr CreateNodeWithScanner();
-    template <OpCode nop> ParseNodePtr CreateNodeWithScanner(charcount_t ichMin);
-    ParseNodePtr CreateStrNodeWithScanner(IdentPtr pid);
-    ParseNodePtr CreateIntNodeWithScanner(int32 lw);
     ParseNodePtr CreateProgNodeWithScanner(bool isModuleSource);
+
+    ParseNodePtr CreateDummyFuncNode(bool fDeclaration);
+
+    ParseNodePtr CreateTempNode(ParseNode* initExpr);
+    ParseNodePtr CreateTempRef(ParseNode* tempNode);
+
+public:
+    // static create nodes using arena allocator; used by AST transformation
+    template <OpCode nop>
+    static ParseNodePtr StaticCreateNodeT(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0)
+    {
+        ParseNodePtr pnode = StaticAllocNode<nop>(alloc);
+        // default min/lim - may be changed
+        InitNode(nop, pnode, ichMin, ichLim);
+
+        return pnode;
+    }
+
+    static ParseNodePtr StaticCreateBinNode(ArenaAllocator* alloc, OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, charcount_t ichMin = 0, charcount_t ichLim = 0);
+    static ParseNodePtr StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0, int blockId = -1, PnodeBlockType blockType = PnodeBlockType::Regular);
 
 private:
     static void InitNode(OpCode nop, ParseNodePtr pnode, charcount_t ichMin, charcount_t ichLim);

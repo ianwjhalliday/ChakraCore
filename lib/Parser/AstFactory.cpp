@@ -17,105 +17,6 @@ static const int g_mpnopcbNode[] =
 const Js::RegSlot NoRegister = (Js::RegSlot)-1;
 const Js::RegSlot OneByteRegister = (Js::RegSlot_OneByte)-1;
 
-void AstFactory::InitNode(OpCode nop, ParseNodePtr pnode, charcount_t ichMin, charcount_t ichLim)
-{
-    pnode->nop = nop;
-    pnode->grfpn = PNodeFlags::fpnNone;
-    pnode->ichMin = ichMin;
-    pnode->ichLim = ichLim;
-    pnode->location = NoRegister;
-    pnode->isUsed = true;
-    pnode->emitLabels = false;
-    pnode->notEscapedUse = false;
-    pnode->isInList = false;
-    pnode->isCallApplyTargetLoad = false;
-#ifdef EDIT_AND_CONTINUE
-    pnode->parent = nullptr;
-#endif
-}
-
-// Create nodes using Arena
-ParseNodePtr
-AstFactory::StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin, charcount_t ichLim, int blockId, PnodeBlockType blockType)
-{
-    ParseNodePtr pnode = StaticCreateNodeT<knopBlock>(alloc, ichMin, ichLim);
-    InitBlockNode(pnode, blockId, blockType);
-    return pnode;
-}
-
-void AstFactory::InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType)
-{
-    Assert(pnode->nop == knopBlock);
-    pnode->sxBlock.pnodeStmt = nullptr;
-    pnode->sxBlock.pnodeLastValStmt = nullptr;
-    pnode->sxBlock.pnodeLexVars = nullptr;
-    pnode->sxBlock.pnodeScopes = nullptr;
-    pnode->sxBlock.pnodeNext = nullptr;
-    pnode->sxBlock.scope = nullptr;
-
-    pnode->sxBlock.enclosingBlock = nullptr;
-    pnode->sxBlock.blockId = blockId;
-    pnode->sxBlock.blockType = blockType;
-    pnode->sxBlock.callsEval = false;
-    pnode->sxBlock.childCallsEval = false;
-
-    if (blockType != PnodeBlockType::Regular)
-    {
-        pnode->grfpn |= PNodeFlags::fpnSyntheticNode;
-    }
-}
-
-// Create Node with limit
-template <OpCode nop>
-ParseNodePtr AstFactory::CreateNodeT(charcount_t ichMin, charcount_t ichLim)
-{
-    Assert(!this->parser->m_deferringAST);
-    ParseNodePtr pnode = StaticCreateNodeT<nop>(&parser->m_nodeAllocator, ichMin, ichLim);
-
-    Assert(parser->m_pCurrentAstSize != NULL);
-    *parser->m_pCurrentAstSize += GetNodeSize<nop>();
-
-    return pnode;
-}
-
-ParseNodePtr AstFactory::CreateNode(OpCode nop)
-{
-    return CreateNode(nop, parser->m_pscan ? parser->m_pscan->IchMinTok() : 0);
-}
-
-void AstFactory::InitDeclNode(ParseNodePtr pnode, IdentPtr name)
-{
-    Assert(pnode->IsVarLetOrConst());
-    pnode->sxVar.pnodeNext = nullptr;
-    pnode->sxVar.pid = name;
-    pnode->sxVar.sym = nullptr;
-    pnode->sxVar.symRef = nullptr;
-    pnode->sxVar.pnodeInit = nullptr;
-    pnode->sxVar.isSwitchStmtDecl = false;
-    pnode->sxVar.isBlockScopeFncDeclVar = false;
-}
-
-ParseNodePtr AstFactory::CreateDeclNode(OpCode nop, IdentPtr pid, SymbolType symbolType, bool errorOnRedecl)
-{
-    ParseNodePtr pnode = CreateNode(nop);
-
-    InitDeclNode(pnode, pid);
-
-    if (symbolType != STUnknown)
-    {
-        pnode->sxVar.sym = parser->AddDeclForPid(pnode, pid, symbolType, errorOnRedecl);
-    }
-
-    return pnode;
-}
-
-ParseNodePtr AstFactory::CreateBlockNode(PnodeBlockType blockType)
-{
-    ParseNodePtr pnode = CreateNode(knopBlock);
-    InitBlockNode(pnode, parser->m_nextBlockId++, blockType);
-    return pnode;
-}
-
 #if DBG
 void VerifyNodeSize(OpCode nop, int size)
 {
@@ -125,35 +26,10 @@ void VerifyNodeSize(OpCode nop, int size)
 }
 #endif
 
-ParseNodePtr AstFactory::StaticCreateBinNode(ArenaAllocator* alloc, OpCode nop,
-                                             ParseNodePtr pnode1, ParseNodePtr pnode2,
-                                             charcount_t ichMin, charcount_t ichLim)
+ParseNodePtr AstFactory::CreateNode(OpCode nop)
 {
-    DebugOnly(VerifyNodeSize(nop, kcbPnBin));
-    ParseNodePtr pnode = (ParseNodePtr)alloc->Alloc(kcbPnBin);
-    InitNode(nop, pnode, ichMin, ichLim);
-
-    pnode->sxBin.pnodeNext = nullptr;
-    pnode->sxBin.pnode1 = pnode1;
-    pnode->sxBin.pnode2 = pnode2;
-
-    // Statically detect if the add is a concat
-    if (!PHASE_OFF1(Js::ByteCodeConcatExprOptPhase))
-    {
-        // We can't flatten the concat expression if the LHS is not a flatten concat already
-        // e.g.  a + (<str> + b)
-        //      Side effect of ToStr(b) need to happen first before ToStr(a)
-        //      If we flatten the concat expression, we will do ToStr(a) before ToStr(b)
-        if ((nop == knopAdd) && (pnode1->CanFlattenConcatExpr() || pnode2->nop == knopStr))
-        {
-            pnode->grfpn |= fpnCanFlattenConcatExpr;
-        }
-    }
-
-    return pnode;
+    return CreateNode(nop, parser->m_pscan ? parser->m_pscan->IchMinTok() : 0);
 }
-
-// Create nodes using parser allocator
 
 ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin)
 {
@@ -176,6 +52,74 @@ ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin)
     // default min/lim - may be changed
     InitNode(nop, pnode, ichMin, parser->m_pscan != nullptr ? parser->m_pscan->IchLimTok() : 0);
 
+    return pnode;
+}
+
+ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin, charcount_t ichLim)
+{
+    Assert(!this->parser->m_deferringAST);
+    Assert(nop >= 0 && nop < knopLim);
+    ParseNodePtr pnode;
+    __analysis_assume(nop < knopLim);
+    int cb = nop >= 0 && nop < knopLim ? g_mpnopcbNode[nop] : kcbPnNone;
+
+    pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(cb);
+    Assert(pnode);
+
+    Assert(parser->m_pCurrentAstSize != NULL);
+    *parser->m_pCurrentAstSize += cb;
+
+    InitNode(nop, pnode, ichMin, ichLim);
+
+    return pnode;
+}
+
+template <OpCode nop>
+ParseNodePtr AstFactory::CreateNodeT(charcount_t ichMin, charcount_t ichLim)
+{
+    Assert(!this->parser->m_deferringAST);
+    ParseNodePtr pnode = StaticCreateNodeT<nop>(&parser->m_nodeAllocator, ichMin, ichLim);
+
+    Assert(parser->m_pCurrentAstSize != NULL);
+    *parser->m_pCurrentAstSize += GetNodeSize<nop>();
+
+    return pnode;
+}
+
+// Create Node with scanner limit
+template <OpCode nop>
+ParseNodePtr AstFactory::CreateNodeWithScanner()
+{
+    Assert(parser->m_pscan != nullptr);
+    return CreateNodeWithScanner<nop>(parser->m_pscan->IchMinTok());
+}
+
+#define PTNODE(nop,sn,pc,nk,ok,json) \
+    template ParseNodePtr AstFactory::CreateNodeWithScanner<nop>();
+#include "ptlist.h"
+
+template <OpCode nop>
+ParseNodePtr AstFactory::CreateNodeWithScanner(charcount_t ichMin)
+{
+    Assert(parser->m_pscan != nullptr);
+    return CreateNodeT<nop>(ichMin, parser->m_pscan->IchLimTok());
+}
+
+ParseNodePtr AstFactory::CreateStrNodeWithScanner(IdentPtr pid)
+{
+    Assert(!this->parser->m_deferringAST);
+
+    ParseNodePtr pnode = CreateNodeWithScanner<knopStr>();
+    pnode->sxPid.pid = pid;
+    pnode->grfpn |= PNodeFlags::fpnCanFlattenConcatExpr;
+    return pnode;
+}
+
+ParseNodePtr AstFactory::CreateIntNodeWithScanner(int32 lw)
+{
+    Assert(!this->parser->m_deferringAST);
+    ParseNodePtr pnode = CreateNodeWithScanner<knopInt>();
+    pnode->sxInt.lw = lw;
     return pnode;
 }
 
@@ -212,6 +156,23 @@ ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1)
         // Checking for the `arguments` identifier shouldn't be the responsibility of AstFactory
         this->parser->CheckArguments(pnode);
     }
+
+    return pnode;
+}
+
+ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcount_t ichMin, charcount_t ichLim)
+{
+    Assert(!this->parser->m_deferringAST);
+    DebugOnly(VerifyNodeSize(nop, kcbPnUni));
+
+    ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(kcbPnUni);
+
+    Assert(parser->m_pCurrentAstSize != NULL);
+    *parser->m_pCurrentAstSize += kcbPnUni;
+
+    InitNode(nop, pnode, ichMin, ichLim);
+
+    pnode->sxUni.pnode1 = pnode1;
 
     return pnode;
 }
@@ -256,6 +217,18 @@ ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1, ParseNod
     return CreateBinNode(nop, pnode1, pnode2, ichMin, ichLim);
 }
 
+ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1,
+                                       ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim)
+{
+    Assert(!this->parser->m_deferringAST);
+    ParseNodePtr pnode = StaticCreateBinNode(&parser->m_nodeAllocator, nop, pnode1, pnode2, ichMin, ichLim);
+
+    Assert(parser->m_pCurrentAstSize != NULL);
+    *parser->m_pCurrentAstSize += kcbPnBin;
+
+    return pnode;
+}
+
 ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
                                        ParseNodePtr pnode2, ParseNodePtr pnode3)
 {
@@ -293,74 +266,55 @@ ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
     return CreateTriNode(nop, pnode1, pnode2, pnode3, ichMin, ichLim);
 }
 
-ParseNodePtr AstFactory::CreateBlockNode(charcount_t ichMin, charcount_t ichLim, PnodeBlockType blockType)
-{
-    return StaticCreateBlockNode(&parser->m_nodeAllocator, ichMin, ichLim, this->parser->m_nextBlockId++, blockType);
-}
-
-ParseNodePtr
-AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim)
+ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
+                                       ParseNodePtr pnode2, ParseNodePtr pnode3,
+                                       charcount_t ichMin, charcount_t ichLim)
 {
     Assert(!this->parser->m_deferringAST);
-    DebugOnly(VerifyNodeSize(nop, kcbPnCall));
-    ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(kcbPnCall);
+    DebugOnly(VerifyNodeSize(nop, kcbPnTri));
+    ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(kcbPnTri);
 
-    Assert(parser->m_pCurrentAstSize != nullptr);
-    *parser->m_pCurrentAstSize += kcbPnCall;
+    Assert(parser->m_pCurrentAstSize != NULL);
+    *parser->m_pCurrentAstSize += kcbPnTri;
 
     InitNode(nop, pnode, ichMin, ichLim);
 
-    pnode->sxCall.pnodeTarget = pnode1;
-    pnode->sxCall.pnodeArgs = pnode2;
-    pnode->sxCall.argCount = 0;
-    pnode->sxCall.spreadArgCount = 0;
-    pnode->sxCall.callOfConstants = false;
-    pnode->sxCall.isApplyCall = false;
-    pnode->sxCall.isEvalCall = false;
+    pnode->sxTri.pnodeNext = NULL;
+    pnode->sxTri.pnode1 = pnode1;
+    pnode->sxTri.pnode2 = pnode2;
+    pnode->sxTri.pnode3 = pnode3;
 
     return pnode;
 }
 
-// Create Node with scanner limit
-template <OpCode nop>
-ParseNodePtr AstFactory::CreateNodeWithScanner()
+ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid)
 {
-    Assert(parser->m_pscan != nullptr);
-    return CreateNodeWithScanner<nop>(parser->m_pscan->IchMinTok());
+    ParseNodePtr pnode = CreateNode(knopName);
+    pnode->sxPid.pid = pid;
+    pnode->sxPid.sym = NULL;
+    pnode->sxPid.symRef = NULL;
+    return pnode;
 }
 
-#define PTNODE(nop,sn,pc,nk,ok,json) \
-    template ParseNodePtr AstFactory::CreateNodeWithScanner<nop>();
-#include "ptlist.h"
-
-template <OpCode nop>
-ParseNodePtr AstFactory::CreateNodeWithScanner(charcount_t ichMin)
+ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid, charcount_t ichMin, charcount_t ichLim)
 {
-    Assert(parser->m_pscan != nullptr);
-    return CreateNodeT<nop>(ichMin, parser->m_pscan->IchLimTok());
+    ParseNodePtr pnode = CreateNodeT<knopName>(ichMin, ichLim);
+    pnode->sxPid.pid = pid;
+    pnode->sxPid.sym = NULL;
+    pnode->sxPid.symRef = NULL;
+    return pnode;
 }
 
-ParseNodePtr AstFactory::CreateProgNodeWithScanner(bool isModuleSource)
+ParseNodePtr AstFactory::CreateBlockNode(PnodeBlockType blockType)
 {
-    ParseNodePtr pnodeProg;
+    ParseNodePtr pnode = CreateNode(knopBlock);
+    InitBlockNode(pnode, parser->m_nextBlockId++, blockType);
+    return pnode;
+}
 
-    if (isModuleSource)
-    {
-        pnodeProg = CreateNodeWithScanner<knopModule>();
-
-        // knopModule is not actually handled anywhere since we would need to handle it everywhere we could
-        // have knopProg and it would be treated exactly the same except for import/export statements.
-        // We are only using it as a way to get the correct size for PnModule.
-        // Consider: Should we add a flag to PnProg which is false but set to true in PnModule?
-        //           If we do, it can't be a virtual method since the parse nodes are all in a union.
-        pnodeProg->nop = knopProg;
-    }
-    else
-    {
-        pnodeProg = CreateNodeWithScanner<knopProg>();
-    }
-
-    return pnodeProg;
+ParseNodePtr AstFactory::CreateBlockNode(charcount_t ichMin, charcount_t ichLim, PnodeBlockType blockType)
+{
+    return StaticCreateBlockNode(&parser->m_nodeAllocator, ichMin, ichLim, this->parser->m_nextBlockId++, blockType);
 }
 
 ParseNodePtr AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2)
@@ -394,47 +348,41 @@ ParseNodePtr AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNo
     return CreateCallNode(nop, pnode1, pnode2, ichMin, ichLim);
 }
 
-ParseNodePtr AstFactory::CreateStrNodeWithScanner(IdentPtr pid)
+ParseNodePtr
+AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim)
 {
     Assert(!this->parser->m_deferringAST);
+    DebugOnly(VerifyNodeSize(nop, kcbPnCall));
+    ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(kcbPnCall);
 
-    ParseNodePtr pnode = CreateNodeWithScanner<knopStr>();
-    pnode->sxPid.pid = pid;
-    pnode->grfpn |= PNodeFlags::fpnCanFlattenConcatExpr;
+    Assert(parser->m_pCurrentAstSize != nullptr);
+    *parser->m_pCurrentAstSize += kcbPnCall;
+
+    InitNode(nop, pnode, ichMin, ichLim);
+
+    pnode->sxCall.pnodeTarget = pnode1;
+    pnode->sxCall.pnodeArgs = pnode2;
+    pnode->sxCall.argCount = 0;
+    pnode->sxCall.spreadArgCount = 0;
+    pnode->sxCall.callOfConstants = false;
+    pnode->sxCall.isApplyCall = false;
+    pnode->sxCall.isEvalCall = false;
+
     return pnode;
 }
 
-ParseNodePtr AstFactory::CreateIntNodeWithScanner(int32 lw)
+ParseNodePtr AstFactory::CreateDeclNode(OpCode nop, IdentPtr pid, SymbolType symbolType, bool errorOnRedecl)
 {
-    Assert(!this->parser->m_deferringAST);
-    ParseNodePtr pnode = CreateNodeWithScanner<knopInt>();
-    pnode->sxInt.lw = lw;
+    ParseNodePtr pnode = CreateNode(nop);
+
+    InitDeclNode(pnode, pid);
+
+    if (symbolType != STUnknown)
+    {
+        pnode->sxVar.sym = parser->AddDeclForPid(pnode, pid, symbolType, errorOnRedecl);
+    }
+
     return pnode;
-}
-
-ParseNodePtr AstFactory::CreateTempNode(ParseNode* initExpr)
-{
-    ParseNodePtr pnode = CreateNode(knopTemp, (charcount_t)0);
-    pnode->sxVar.pnodeInit = initExpr;
-    pnode->sxVar.pnodeNext = nullptr;
-    return pnode;
-}
-
-ParseNodePtr AstFactory::CreateTempRef(ParseNode* tempNode)
-{
-    ParseNodePtr pnode = CreateUniNode(knopTempRef, tempNode);
-    return pnode;
-}
-
-ParseNodePtr AstFactory::CreateModuleImportDeclNode(IdentPtr localName)
-{
-    ParseNodePtr declNode = CreateBlockScopedDeclNode(localName, knopConstDecl);
-    Symbol* sym = declNode->sxVar.sym;
-
-    sym->SetIsModuleExportStorage(true);
-    sym->SetIsModuleImport(true);
-
-    return declNode;
 }
 
 ParseNodePtr AstFactory::CreateVarDeclNode(IdentPtr pid, SymbolType symbolType, bool autoArgumentsObject, ParseNodePtr pnodeFnc, bool errorOnRedecl)
@@ -469,6 +417,49 @@ ParseNodePtr AstFactory::CreateBlockScopedDeclNode(IdentPtr pid, OpCode nodeType
     }
 
     return pnode;
+}
+
+ParseNodePtr AstFactory::CreateModuleImportDeclNode(IdentPtr localName)
+{
+    ParseNodePtr declNode = CreateBlockScopedDeclNode(localName, knopConstDecl);
+    Symbol* sym = declNode->sxVar.sym;
+
+    sym->SetIsModuleExportStorage(true);
+    sym->SetIsModuleImport(true);
+
+    return declNode;
+}
+
+ParseNodePtr AstFactory::CreateParamPatternNode(ParseNodePtr pnode1)
+{
+    ParseNodePtr paramPatternNode = CreateNode(knopParamPattern, pnode1->ichMin, pnode1->ichLim);
+    paramPatternNode->sxParamPattern.pnode1 = pnode1;
+    paramPatternNode->sxParamPattern.pnodeNext = nullptr;
+    paramPatternNode->sxParamPattern.location = Js::Constants::NoRegister;
+    return paramPatternNode;
+}
+
+ParseNodePtr AstFactory::CreateProgNodeWithScanner(bool isModuleSource)
+{
+    ParseNodePtr pnodeProg;
+
+    if (isModuleSource)
+    {
+        pnodeProg = CreateNodeWithScanner<knopModule>();
+
+        // knopModule is not actually handled anywhere since we would need to handle it everywhere we could
+        // have knopProg and it would be treated exactly the same except for import/export statements.
+        // We are only using it as a way to get the correct size for PnModule.
+        // Consider: Should we add a flag to PnProg which is false but set to true in PnModule?
+        //           If we do, it can't be a virtual method since the parse nodes are all in a union.
+        pnodeProg->nop = knopProg;
+    }
+    else
+    {
+        pnodeProg = CreateNodeWithScanner<knopProg>();
+    }
+
+    return pnodeProg;
 }
 
 ParseNodePtr AstFactory::CreateDummyFuncNode(bool fDeclaration)
@@ -507,90 +498,103 @@ ParseNodePtr AstFactory::CreateDummyFuncNode(bool fDeclaration)
     return pnodeFnc;
 }
 
-// Create node versions with explicit token limits
-ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin, charcount_t ichLim)
+ParseNodePtr AstFactory::CreateTempNode(ParseNode* initExpr)
 {
-    Assert(!this->parser->m_deferringAST);
-    Assert(nop >= 0 && nop < knopLim);
-    ParseNodePtr pnode;
-    __analysis_assume(nop < knopLim);
-    int cb = nop >= 0 && nop < knopLim ? g_mpnopcbNode[nop] : kcbPnNone;
+    ParseNodePtr pnode = CreateNode(knopTemp, (charcount_t)0);
+    pnode->sxVar.pnodeInit = initExpr;
+    pnode->sxVar.pnodeNext = nullptr;
+    return pnode;
+}
 
-    pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(cb);
-    Assert(pnode);
+ParseNodePtr AstFactory::CreateTempRef(ParseNode* tempNode)
+{
+    ParseNodePtr pnode = CreateUniNode(knopTempRef, tempNode);
+    return pnode;
+}
 
-    Assert(parser->m_pCurrentAstSize != NULL);
-    *parser->m_pCurrentAstSize += cb;
-
+ParseNodePtr AstFactory::StaticCreateBinNode(ArenaAllocator* alloc, OpCode nop,
+                                             ParseNodePtr pnode1, ParseNodePtr pnode2,
+                                             charcount_t ichMin, charcount_t ichLim)
+{
+    DebugOnly(VerifyNodeSize(nop, kcbPnBin));
+    ParseNodePtr pnode = (ParseNodePtr)alloc->Alloc(kcbPnBin);
     InitNode(nop, pnode, ichMin, ichLim);
 
-    return pnode;
-}
+    pnode->sxBin.pnodeNext = nullptr;
+    pnode->sxBin.pnode1 = pnode1;
+    pnode->sxBin.pnode2 = pnode2;
 
-ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid, charcount_t ichMin, charcount_t ichLim)
-{
-    ParseNodePtr pnode = CreateNodeT<knopName>(ichMin, ichLim);
-    pnode->sxPid.pid = pid;
-    pnode->sxPid.sym = NULL;
-    pnode->sxPid.symRef = NULL;
-    return pnode;
-}
-
-ParseNodePtr AstFactory::CreateUniNode(OpCode nop, ParseNodePtr pnode1, charcount_t ichMin, charcount_t ichLim)
-{
-    Assert(!this->parser->m_deferringAST);
-    DebugOnly(VerifyNodeSize(nop, kcbPnUni));
-
-    ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(kcbPnUni);
-
-    Assert(parser->m_pCurrentAstSize != NULL);
-    *parser->m_pCurrentAstSize += kcbPnUni;
-
-    InitNode(nop, pnode, ichMin, ichLim);
-
-    pnode->sxUni.pnode1 = pnode1;
+    // Statically detect if the add is a concat
+    if (!PHASE_OFF1(Js::ByteCodeConcatExprOptPhase))
+    {
+        // We can't flatten the concat expression if the LHS is not a flatten concat already
+        // e.g.  a + (<str> + b)
+        //      Side effect of ToStr(b) need to happen first before ToStr(a)
+        //      If we flatten the concat expression, we will do ToStr(a) before ToStr(b)
+        if ((nop == knopAdd) && (pnode1->CanFlattenConcatExpr() || pnode2->nop == knopStr))
+        {
+            pnode->grfpn |= fpnCanFlattenConcatExpr;
+        }
+    }
 
     return pnode;
 }
 
-ParseNodePtr AstFactory::CreateBinNode(OpCode nop, ParseNodePtr pnode1,
-                                       ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim)
+ParseNodePtr
+AstFactory::StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin, charcount_t ichLim, int blockId, PnodeBlockType blockType)
 {
-    Assert(!this->parser->m_deferringAST);
-    ParseNodePtr pnode = StaticCreateBinNode(&parser->m_nodeAllocator, nop, pnode1, pnode2, ichMin, ichLim);
-
-    Assert(parser->m_pCurrentAstSize != NULL);
-    *parser->m_pCurrentAstSize += kcbPnBin;
-
+    ParseNodePtr pnode = StaticCreateNodeT<knopBlock>(alloc, ichMin, ichLim);
+    InitBlockNode(pnode, blockId, blockType);
     return pnode;
 }
 
-ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
-                                       ParseNodePtr pnode2, ParseNodePtr pnode3,
-                                       charcount_t ichMin, charcount_t ichLim)
+void AstFactory::InitNode(OpCode nop, ParseNodePtr pnode, charcount_t ichMin, charcount_t ichLim)
 {
-    Assert(!this->parser->m_deferringAST);
-    DebugOnly(VerifyNodeSize(nop, kcbPnTri));
-    ParseNodePtr pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(kcbPnTri);
-
-    Assert(parser->m_pCurrentAstSize != NULL);
-    *parser->m_pCurrentAstSize += kcbPnTri;
-
-    InitNode(nop, pnode, ichMin, ichLim);
-
-    pnode->sxTri.pnodeNext = NULL;
-    pnode->sxTri.pnode1 = pnode1;
-    pnode->sxTri.pnode2 = pnode2;
-    pnode->sxTri.pnode3 = pnode3;
-
-    return pnode;
+    pnode->nop = nop;
+    pnode->grfpn = PNodeFlags::fpnNone;
+    pnode->ichMin = ichMin;
+    pnode->ichLim = ichLim;
+    pnode->location = NoRegister;
+    pnode->isUsed = true;
+    pnode->emitLabels = false;
+    pnode->notEscapedUse = false;
+    pnode->isInList = false;
+    pnode->isCallApplyTargetLoad = false;
+#ifdef EDIT_AND_CONTINUE
+    pnode->parent = nullptr;
+#endif
 }
 
-ParseNodePtr AstFactory::CreateParamPatternNode(ParseNodePtr pnode1)
+void AstFactory::InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType)
 {
-    ParseNodePtr paramPatternNode = CreateNode(knopParamPattern, pnode1->ichMin, pnode1->ichLim);
-    paramPatternNode->sxParamPattern.pnode1 = pnode1;
-    paramPatternNode->sxParamPattern.pnodeNext = nullptr;
-    paramPatternNode->sxParamPattern.location = Js::Constants::NoRegister;
-    return paramPatternNode;
+    Assert(pnode->nop == knopBlock);
+    pnode->sxBlock.pnodeStmt = nullptr;
+    pnode->sxBlock.pnodeLastValStmt = nullptr;
+    pnode->sxBlock.pnodeLexVars = nullptr;
+    pnode->sxBlock.pnodeScopes = nullptr;
+    pnode->sxBlock.pnodeNext = nullptr;
+    pnode->sxBlock.scope = nullptr;
+
+    pnode->sxBlock.enclosingBlock = nullptr;
+    pnode->sxBlock.blockId = blockId;
+    pnode->sxBlock.blockType = blockType;
+    pnode->sxBlock.callsEval = false;
+    pnode->sxBlock.childCallsEval = false;
+
+    if (blockType != PnodeBlockType::Regular)
+    {
+        pnode->grfpn |= PNodeFlags::fpnSyntheticNode;
+    }
+}
+
+void AstFactory::InitDeclNode(ParseNodePtr pnode, IdentPtr name)
+{
+    Assert(pnode->IsVarLetOrConst());
+    pnode->sxVar.pnodeNext = nullptr;
+    pnode->sxVar.pid = name;
+    pnode->sxVar.sym = nullptr;
+    pnode->sxVar.symRef = nullptr;
+    pnode->sxVar.pnodeInit = nullptr;
+    pnode->sxVar.isSwitchStmtDecl = false;
+    pnode->sxVar.isBlockScopeFncDeclVar = false;
 }

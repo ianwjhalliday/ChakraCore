@@ -14,9 +14,10 @@ private:
 public:
     AstFactory(Parser* p) : parser(p) { }
 
-    ParseNodePtr CreateNode(OpCode nop);
-    ParseNodePtr CreateNode(OpCode nop, charcount_t ichMin);
-    ParseNodePtr CreateNode(OpCode nop, charcount_t ichMin, charcount_t ichLim);
+    template <OpCode nop>
+    ParseNodePtr CreateNodeT();
+    template <OpCode nop>
+    ParseNodePtr CreateNodeT(charcount_t ichMin);
     template <OpCode nop>
     ParseNodePtr CreateNodeT(charcount_t ichMin, charcount_t ichLim);
 
@@ -47,7 +48,8 @@ public:
     ParseNodePtr CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2);
     ParseNodePtr CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2, charcount_t ichMin, charcount_t ichLim);
 
-    ParseNodePtr CreateDeclNode(OpCode nop, IdentPtr pid, SymbolType symbolType, bool errorOnRedecl = true);
+    template <OpCode nop>
+    ParseNodePtr CreateDeclNode(IdentPtr pid, SymbolType symbolType, bool errorOnRedecl = true);
 
     // Add a var declaration. Only use while parsing. Assumes m_ppnodeVar is pointing to the right place already
     ParseNodePtr CreateVarDeclNode(IdentPtr pid, SymbolType symbolType, bool autoArgumentsObject = false, ParseNodePtr pnodeFnc = nullptr, bool checkReDecl = true);
@@ -55,7 +57,8 @@ public:
     // This shouldn't be here? Or should the other two not be named Create...()?
     //ParseNodePtr AddVarDeclNode(IdentPtr pid, ParseNodePtr pnodeFnc);
     // Add a 'const' or 'let' declaration.
-    ParseNodePtr CreateBlockScopedDeclNode(IdentPtr pid, OpCode nodeType);
+    ParseNodePtr CreateLetDeclNode(IdentPtr pid);
+    ParseNodePtr CreateConstDeclNode(IdentPtr pid);
 
     ParseNodePtr CreateModuleImportDeclNode(IdentPtr localName);
 
@@ -73,7 +76,9 @@ public:
     template <OpCode nop>
     static ParseNodePtr StaticCreateNodeT(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0)
     {
-        ParseNodePtr pnode = StaticAllocNode<nop>(alloc);
+        ParseNodePtr pnode = (ParseNodePtr)alloc->Alloc(GetNodeSize<nop>());
+        Assert(pnode != nullptr);
+
         // default min/lim - may be changed
         InitNode(nop, pnode, ichMin, ichLim);
 
@@ -84,18 +89,14 @@ public:
     static ParseNodePtr StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin = 0, charcount_t ichLim = 0, int blockId = -1, PnodeBlockType blockType = PnodeBlockType::Regular);
 
 private:
+    template <OpCode nop>
+    ParseNodePtr CreateBlockScopedDeclNode(IdentPtr pid);
+
     static void InitNode(OpCode nop, ParseNodePtr pnode, charcount_t ichMin, charcount_t ichLim);
     static void InitBlockNode(ParseNodePtr pnode, int blockId, PnodeBlockType blockType);
     static void InitDeclNode(ParseNodePtr pnode, IdentPtr name);
 
     template <OpCode nop> static int GetNodeSize();
-
-    template <OpCode nop> static ParseNodePtr StaticAllocNode(ArenaAllocator * alloc)
-    {
-        ParseNodePtr pnode = (ParseNodePtr)alloc->Alloc(GetNodeSize<nop>());
-        Assert(pnode != nullptr);
-        return pnode;
-    }
 };
 
 #define PTNODE(nop,sn,pc,nk,ok,json) \

@@ -267,7 +267,7 @@ HRESULT Parser::ValidateSyntax(LPCUTF8 pszSrc, size_t encodedCharCount, bool isG
 
         m_nextBlockId = 0;
 
-        ParseNode *pnodeFnc = m_ast.CreateNode(knopFncDecl);
+        ParseNode *pnodeFnc = m_ast.CreateNodeT<knopFncDecl>();
         pnodeFnc->sxFnc.ClearFlags();
         pnodeFnc->sxFnc.SetDeclaration(false);
         pnodeFnc->sxFnc.functionId   = 0;
@@ -2106,7 +2106,7 @@ LDefault:
 
                 // Mark this node as the default module export. We need to make sure it is put into the correct
                 // module export slot when we emit the node.
-                pnode = m_ast.CreateNode(knopExportDefault);
+                pnode = m_ast.CreateNodeT<knopExportDefault>();
                 pnode->sxExportDefault.pnodeExpr = pnodeExpression;
             }
             break;
@@ -3967,7 +3967,7 @@ ParseNodePtr Parser::ParseFncDecl(ushort flags, LPCOLESTR pNameHint, const bool 
     }
 
     // Create the node.
-    pnodeFnc = m_ast.CreateNode(knopFncDecl);
+    pnodeFnc = m_ast.CreateNodeT<knopFncDecl>();
     pnodeFnc->sxFnc.ClearFlags();
     pnodeFnc->sxFnc.SetDeclaration(fDeclaration);
     pnodeFnc->sxFnc.astSize             = 0;
@@ -5389,7 +5389,7 @@ bool Parser::ParseFncNames(ParseNodePtr pnodeFnc, ParseNodePtr pnodeFncParent, u
     m_pscan->Scan();
 
     IdentPtr pidBase = tokenBase.GetIdentifier(m_phtbl);
-    pnodeT = m_ast.CreateDeclNode(knopVarDecl, pidBase, STFunction);
+    pnodeT = m_ast.CreateDeclNode<knopVarDecl>(pidBase, STFunction);
     pnodeT->ichMin = ichMinBase;
     pnodeT->ichLim = ichLimBase;
 
@@ -5608,7 +5608,7 @@ void Parser::ParseFncFormals(ParseNodePtr pnodeFnc, ParseNodePtr pnodeParentFnc,
                         // The parameter of a setter cannot be a rest parameter.
                         Error(ERRsyntax);
                     }
-                    pnodeT = m_ast.CreateDeclNode(knopVarDecl, pid, STFormal, false);
+                    pnodeT = m_ast.CreateDeclNode<knopVarDecl>(pid, STFormal, false);
                     pnodeT->sxVar.sym->SetIsNonSimpleParameter(true);
                     if (buildAST)
                     {
@@ -5781,7 +5781,7 @@ ParseNodePtr Parser::GenerateEmptyConstructor(bool extends)
     ParseNodePtr pnodeFnc;
 
     // Create the node.
-    pnodeFnc = m_ast.CreateNode(knopFncDecl);
+    pnodeFnc = m_ast.CreateNodeT<knopFncDecl>();
     pnodeFnc->sxFnc.ClearFlags();
     pnodeFnc->sxFnc.SetNested(NULL != m_currentNodeFunc);
     pnodeFnc->sxFnc.SetStrictMode();
@@ -6435,7 +6435,7 @@ ParseNodePtr Parser::ParseClassDecl(BOOL isDeclaration, LPCOLESTR pNameHint, uin
     ParseNodePtr pnodeClass = nullptr;
     if (buildAST)
     {
-        pnodeClass = m_ast.CreateNode(knopClassDecl);
+        pnodeClass = m_ast.CreateNodeT<knopClassDecl>();
 
         CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(Class, m_scriptContext);
     }
@@ -6462,7 +6462,7 @@ ParseNodePtr Parser::ParseClassDecl(BOOL isDeclaration, LPCOLESTR pNameHint, uin
     ParseNodePtr pnodeDeclName = nullptr;
     if (isDeclaration)
     {
-        pnodeDeclName = m_ast.CreateBlockScopedDeclNode(name, knopLetDecl);
+        pnodeDeclName = m_ast.CreateLetDeclNode(name);
     }
 
     ParseNodePtr *ppnodeScopeSave = nullptr;
@@ -6477,7 +6477,7 @@ ParseNodePtr Parser::ParseClassDecl(BOOL isDeclaration, LPCOLESTR pNameHint, uin
 
     if (name)
     {
-        pnodeName = m_ast.CreateBlockScopedDeclNode(name, knopConstDecl);
+        pnodeName = m_ast.CreateConstDeclNode(name);
     }
 
     if (m_token.tk == tkEXTENDS)
@@ -6814,7 +6814,7 @@ ParseNodePtr Parser::ParseStringTemplateDecl(ParseNodePtr pnodeTagFnc)
 
     if (buildAST)
     {
-        pnodeStringTemplate = m_ast.CreateNode(knopStrTemplate);
+        pnodeStringTemplate = m_ast.CreateNodeT<knopStrTemplate>();
         pnodeStringTemplate->sxStrTemplate.countStringLiterals = 0;
         pnodeStringTemplate->sxStrTemplate.isTaggedTemplate = isTagged ? TRUE : FALSE;
 
@@ -8008,12 +8008,12 @@ ParseNodePtr Parser::ParseVariableDeclaration(
             }
             else if (declarationType == tkCONST)
             {
-                pnodeThis = m_ast.CreateBlockScopedDeclNode(pid, knopConstDecl);
+                pnodeThis = m_ast.CreateConstDeclNode(pid);
                 CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(Const, m_scriptContext);
             }
             else
             {
-                pnodeThis = m_ast.CreateBlockScopedDeclNode(pid, knopLetDecl);
+                pnodeThis = m_ast.CreateLetDeclNode(pid);
                 CHAKRATEL_LANGSTATS_INC_LANGFEATURECOUNT(Let, m_scriptContext);
             }
 
@@ -8166,7 +8166,7 @@ ParseNodePtr Parser::ParseTryCatchFinally()
     ParseNodePtr pnodeTF = nullptr;
     if (buildAST)
     {
-        pnodeTF = m_ast.CreateNode(knopTryFinally);
+        pnodeTF = m_ast.CreateNodeT<knopTryFinally>();
     }
     PushStmt<buildAST>(&stmt, pnodeTF, knopTryFinally, nullptr);
     ParseNodePtr pnodeFinally = ParseFinally<buildAST>();
@@ -8179,7 +8179,7 @@ ParseNodePtr Parser::ParseTryCatchFinally()
         }
         else
         {
-            pnodeTF->sxTryFinally.pnodeTry = m_ast.CreateNode(knopTry);
+            pnodeTF->sxTryFinally.pnodeTry = m_ast.CreateNodeT<knopTry>();
             pnodeTF->sxTryFinally.pnodeTry->sxStmt.pnodeOuter = pnodeTF;
             pnodeTF->sxTryFinally.pnodeTry->sxTry.pnodeBody = pnodeTC;
             pnodeTC->sxStmt.pnodeOuter = pnodeTF->sxTryFinally.pnodeTry;
@@ -8199,7 +8199,7 @@ ParseNodePtr Parser::ParseTry()
     Assert(tkTRY == m_token.tk);
     if (buildAST)
     {
-        pnode = m_ast.CreateNode(knopTry);
+        pnode = m_ast.CreateNodeT<knopTry>();
     }
     m_pscan->Scan();
     if (tkLCurly != m_token.tk)
@@ -8227,7 +8227,7 @@ ParseNodePtr Parser::ParseFinally()
     Assert(tkFINALLY == m_token.tk);
     if (buildAST)
     {
-        pnode = m_ast.CreateNode(knopFinally);
+        pnode = m_ast.CreateNodeT<knopFinally>();
     }
     m_pscan->Scan();
     if (tkLCurly != m_token.tk)
@@ -9148,7 +9148,7 @@ LEndSwitch:
     case tkCONTINUE:
         if (buildAST)
         {
-            pnode = m_ast.CreateNode(knopContinue);
+            pnode = m_ast.CreateNodeT<knopContinue>();
         }
         fnop = fnopContinue;
 
@@ -10189,7 +10189,7 @@ ParseNodePtr Parser::Parse(LPCUTF8 pszSrc, size_t offset, size_t length, charcou
         if (scopeInfo)
         {
             // Create an enclosing function context.
-            m_currentNodeFunc = m_ast.CreateNode(knopFncDecl);
+            m_currentNodeFunc = m_ast.CreateNodeT<knopFncDecl>();
             m_currentNodeFunc->sxFnc.pnodeName = nullptr;
             m_currentNodeFunc->sxFnc.functionId = m_functionBody->GetLocalFunctionId();
             m_currentNodeFunc->sxFnc.nestedCount = m_functionBody->GetNestedCount();

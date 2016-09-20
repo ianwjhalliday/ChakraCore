@@ -26,50 +26,36 @@ void VerifyNodeSize(OpCode nop, int size)
 }
 #endif
 
-ParseNodePtr AstFactory::CreateNode(OpCode nop)
+template <OpCode nop>
+ParseNodePtr AstFactory::CreateNodeT()
 {
-    return CreateNode(nop, parser->m_pscan != nullptr ? parser->m_pscan->IchMinTok() : 0);
+    return CreateNodeT<nop>(parser->m_pscan != nullptr ? parser->m_pscan->IchMinTok() : 0);
 }
 
-ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin)
+template <OpCode nop>
+ParseNodePtr AstFactory::CreateNodeT(charcount_t ichMin)
 {
-    return CreateNode(nop, ichMin, parser->m_pscan != nullptr ? parser->m_pscan->IchLimTok() : 0);
-}
-
-ParseNodePtr AstFactory::CreateNode(OpCode nop, charcount_t ichMin, charcount_t ichLim)
-{
-    Assert(parser->IsNodeAllowedInCurrentDeferralState(nop));
-
-    Assert(nop >= 0 && nop < knopLim);
-    ParseNodePtr pnode;
-    __analysis_assume(nop < knopLim);
-    int cb = (nop >= knopNone && nop < knopLim) ? g_mpnopcbNode[nop] : kcbPnNone;
-
-    pnode = (ParseNodePtr)parser->m_nodeAllocator.Alloc(cb);
-    Assert(pnode != nullptr);
-
-    if (!parser->m_deferringAST)
-    {
-        Assert(parser->m_pCurrentAstSize != nullptr);
-        *parser->m_pCurrentAstSize += cb;
-    }
-
-    InitNode(nop, pnode, ichMin, ichLim);
-
-    return pnode;
+    return CreateNodeT<nop>(ichMin, parser->m_pscan != nullptr ? parser->m_pscan->IchLimTok() : 0);
 }
 
 template <OpCode nop>
 ParseNodePtr AstFactory::CreateNodeT(charcount_t ichMin, charcount_t ichLim)
 {
-    Assert(!this->parser->m_deferringAST);
-    ParseNodePtr pnode = StaticCreateNodeT<nop>(&parser->m_nodeAllocator, ichMin, ichLim);
+    Assert(parser->IsNodeAllowedInCurrentDeferralState(nop));
 
-    Assert(parser->m_pCurrentAstSize != nullptr);
-    *parser->m_pCurrentAstSize += GetNodeSize<nop>();
+    if (!parser->m_deferringAST)
+    {
+        Assert(parser->m_pCurrentAstSize != nullptr);
+        *parser->m_pCurrentAstSize += GetNodeSize<nop>();
+    }
 
-    return pnode;
+    return StaticCreateNodeT<nop>(&parser->m_nodeAllocator, ichMin, ichLim);
 }
+
+#define PTNODE(nop,sn,pc,nk,ok,json) \
+    template ParseNodePtr AstFactory::CreateNodeT<nop>();
+#include "ptlist.h"
+
 
 // Create Node with scanner limit
 template <OpCode nop>
@@ -274,7 +260,7 @@ ParseNodePtr AstFactory::CreateTriNode(OpCode nop, ParseNodePtr pnode1,
 
 ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid)
 {
-    ParseNodePtr pnode = CreateNode(knopName);
+    ParseNodePtr pnode = CreateNodeT<knopName>();
     pnode->sxPid.pid = pid;
     pnode->sxPid.sym = nullptr;
     pnode->sxPid.symRef = nullptr;
@@ -292,7 +278,7 @@ ParseNodePtr AstFactory::CreateNameNode(IdentPtr pid, charcount_t ichMin, charco
 
 ParseNodePtr AstFactory::CreateBlockNode(PnodeBlockType blockType)
 {
-    ParseNodePtr pnode = CreateNode(knopBlock);
+    ParseNodePtr pnode = CreateNodeT<knopBlock>();
     InitBlockNode(pnode, parser->m_nextBlockId++, blockType);
     return pnode;
 }
@@ -356,9 +342,10 @@ AstFactory::CreateCallNode(OpCode nop, ParseNodePtr pnode1, ParseNodePtr pnode2,
     return pnode;
 }
 
-ParseNodePtr AstFactory::CreateDeclNode(OpCode nop, IdentPtr pid, SymbolType symbolType, bool errorOnRedecl)
+template <OpCode nop>
+ParseNodePtr AstFactory::CreateDeclNode(IdentPtr pid, SymbolType symbolType, bool errorOnRedecl)
 {
-    ParseNodePtr pnode = CreateNode(nop);
+    ParseNodePtr pnode = CreateNodeT<nop>();
 
     InitDeclNode(pnode, pid);
 
@@ -372,7 +359,7 @@ ParseNodePtr AstFactory::CreateDeclNode(OpCode nop, IdentPtr pid, SymbolType sym
 
 ParseNodePtr AstFactory::CreateVarDeclNode(IdentPtr pid, SymbolType symbolType, bool autoArgumentsObject, ParseNodePtr pnodeFnc, bool errorOnRedecl)
 {
-    ParseNodePtr pnode = CreateDeclNode(knopVarDecl, pid, symbolType, errorOnRedecl);
+    ParseNodePtr pnode = CreateDeclNode<knopVarDecl>(pid, symbolType, errorOnRedecl);
 
     // Append the variable to the end of the current variable list.
     pnode->sxVar.pnodeNext = *parser->m_ppnodeVar;
@@ -387,26 +374,19 @@ ParseNodePtr AstFactory::CreateVarDeclNode(IdentPtr pid, SymbolType symbolType, 
     return pnode;
 }
 
-ParseNodePtr AstFactory::CreateBlockScopedDeclNode(IdentPtr pid, OpCode nodeType)
+ParseNodePtr AstFactory::CreateLetDeclNode(IdentPtr pid)
 {
-    Assert(nodeType == knopConstDecl || nodeType == knopLetDecl);
+    return CreateBlockScopedDeclNode<knopLetDecl>(pid);
+}
 
-    ParseNodePtr pnode = CreateDeclNode(nodeType, pid, STVariable, true);
-
-    if (nullptr != pid)
-    {
-        pid->SetIsLetOrConst();
-        parser->AddVarDeclToBlock(pnode);
-        // TODO[ianhall]: There appears to be no corresponding check for !buildAST on the CreateModuleImportDeclNode path.  Is this a bug?
-        parser->CheckStrictModeEvalArgumentsUsage(pid, pnode);
-    }
-
-    return pnode;
+ParseNodePtr AstFactory::CreateConstDeclNode(IdentPtr pid)
+{
+    return CreateBlockScopedDeclNode<knopConstDecl>(pid);
 }
 
 ParseNodePtr AstFactory::CreateModuleImportDeclNode(IdentPtr localName)
 {
-    ParseNodePtr declNode = CreateBlockScopedDeclNode(localName, knopConstDecl);
+    ParseNodePtr declNode = CreateConstDeclNode(localName);
     Symbol* sym = declNode->sxVar.sym;
 
     sym->SetIsModuleExportStorage(true);
@@ -417,7 +397,7 @@ ParseNodePtr AstFactory::CreateModuleImportDeclNode(IdentPtr localName)
 
 ParseNodePtr AstFactory::CreateParamPatternNode(ParseNodePtr pnode1)
 {
-    ParseNodePtr paramPatternNode = CreateNode(knopParamPattern, pnode1->ichMin, pnode1->ichLim);
+    ParseNodePtr paramPatternNode = CreateNodeT<knopParamPattern>(pnode1->ichMin, pnode1->ichLim);
     paramPatternNode->sxParamPattern.pnode1 = pnode1;
     paramPatternNode->sxParamPattern.pnodeNext = nullptr;
     paramPatternNode->sxParamPattern.location = Js::Constants::NoRegister;
@@ -453,7 +433,7 @@ ParseNodePtr AstFactory::CreateDummyFuncNode(bool fDeclaration)
     // Do this in situations where we want to parse statements without impacting
     // the state of the "real" AST.
 
-    ParseNodePtr pnodeFnc = CreateNode(knopFncDecl);
+    ParseNodePtr pnodeFnc = CreateNodeT<knopFncDecl>();
     pnodeFnc->sxFnc.ClearFlags();
     pnodeFnc->sxFnc.SetDeclaration(fDeclaration);
     pnodeFnc->sxFnc.astSize             = 0;
@@ -485,7 +465,7 @@ ParseNodePtr AstFactory::CreateDummyFuncNode(bool fDeclaration)
 
 ParseNodePtr AstFactory::CreateTempNode(ParseNode* initExpr)
 {
-    ParseNodePtr pnode = CreateNode(knopTemp, (charcount_t)0);
+    ParseNodePtr pnode = CreateNodeT<knopTemp>(0);
     pnode->sxVar.pnodeInit = initExpr;
     pnode->sxVar.pnodeNext = nullptr;
     return pnode;
@@ -530,6 +510,24 @@ AstFactory::StaticCreateBlockNode(ArenaAllocator* alloc, charcount_t ichMin, cha
 {
     ParseNodePtr pnode = StaticCreateNodeT<knopBlock>(alloc, ichMin, ichLim);
     InitBlockNode(pnode, blockId, blockType);
+    return pnode;
+}
+
+template <OpCode nop>
+ParseNodePtr AstFactory::CreateBlockScopedDeclNode(IdentPtr pid)
+{
+    CompileAssert(nop == knopConstDecl || nop == knopLetDecl);
+
+    ParseNodePtr pnode = CreateDeclNode<nop>(pid, STVariable, true);
+
+    if (nullptr != pid)
+    {
+        pid->SetIsLetOrConst();
+        parser->AddVarDeclToBlock(pnode);
+        // TODO[ianhall]: There appears to be no corresponding check for !buildAST on the CreateModuleImportDeclNode path.  Is this a bug?
+        parser->CheckStrictModeEvalArgumentsUsage(pid, pnode);
+    }
+
     return pnode;
 }
 

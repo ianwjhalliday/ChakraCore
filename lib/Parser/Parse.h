@@ -140,7 +140,8 @@ public:
     BOOL IsDeferredFnc();
     void ReduceDeferredScriptLength(size_t chars);
 
-    void RestorePidRefForSym(Symbol *sym);
+    IdentPtr GetPid(const char16* name, uint32 nameLength);
+    void RestorePidRefForSym(IdentPtr pid, Symbol *sym);
 
     HRESULT ValidateSyntax(LPCUTF8 pszSrc, size_t encodedCharCount, bool isGenerator, bool isAsync, CompileScriptException *pse, void (Parser::*validateFunction)());
 

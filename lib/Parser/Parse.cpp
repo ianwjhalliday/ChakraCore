@@ -931,25 +931,22 @@ Symbol* Parser::AddDeclForPid(ParseNodePtr pnode, IdentPtr pid, SymbolType symbo
 
         if (!sym)
         {
-            const char16 *name = reinterpret_cast<const char16*>(pid->Psz());
-            int nameLength = pid->Cch();
-            SymbolName const symName(name, nameLength);
-
-            Assert(!scope->FindLocalSymbol(symName));
-            sym = Anew(&m_nodeAllocator, Symbol, symName, pnode, symbolType);
+            sym = Symbol::New(&m_nodeAllocator, pid, pnode, symbolType);
+            Assert(!scope->FindLocalSymbol(sym->GetName()));
             scope->AddNewSymbol(sym);
-            sym->SetPid(pid);
         }
         refForDecl->SetSym(sym);
     }
     return sym;
 }
 
-void Parser::RestorePidRefForSym(Symbol *sym)
+IdentPtr Parser::GetPid(const char16* name, uint32 nameLength)
 {
-    IdentPtr pid = m_pscan->m_phtbl->PidHashNameLen(sym->GetName().GetBuffer(), sym->GetName().GetLength());
-    Assert(pid);
-    sym->SetPid(pid);
+    return m_pscan->m_phtbl->PidHashNameLen(name, nameLength);
+}
+
+void Parser::RestorePidRefForSym(IdentPtr pid, Symbol *sym)
+{
     PidRefStack *ref = this->PushPidRef(pid);
     ref->SetSym(sym);
 }
@@ -8821,15 +8818,7 @@ ParseNodePtr Parser::ParseCatch()
             ParseNodePtr pnodeParam = CreateNameNode(pidCatch);
             pnodeParam->sxPid.symRef = ref->GetSymRef();
 
-            const char16 *name = reinterpret_cast<const char16*>(pidCatch->Psz());
-            int nameLength = pidCatch->Cch();
-            SymbolName const symName(name, nameLength);
-            Symbol *sym = Anew(&m_nodeAllocator, Symbol, symName, pnodeParam, STVariable);
-            sym->SetPid(pidCatch);
-            if (sym == nullptr)
-            {
-                Error(ERRnoMemory);
-            }
+            Symbol *sym = Symbol::New(&m_nodeAllocator, pidCatch, pnodeParam, STVariable);
             Assert(ref->GetSym() == nullptr);
             ref->SetSym(sym);
 

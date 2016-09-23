@@ -322,8 +322,8 @@ namespace Js
             if (name != nullptr)
             {
                 SymbolType symbolType = GetSymbolType(i);
-                SymbolName symName(name->GetBuffer(), name->GetLength());
-                Symbol *sym = Anew(alloc, Symbol, symName, nullptr, symbolType);
+                IdentPtr pid = parser->GetPid(name->GetBuffer(), name->GetLength());
+                Symbol *sym = Symbol::New(alloc, pid, nullptr, symbolType);
 
                 sym->SetScopeSlot(static_cast<PropertyId>(i));
                 sym->SetIsBlockVar(GetIsBlockVariable(i));
@@ -337,7 +337,7 @@ namespace Js
                 scope->AddNewSymbol(sym);
                 sym->SetHasNonLocalReference();
                 Assert(parser);
-                parser->RestorePidRefForSym(sym);
+                parser->RestorePidRefForSym(pid, sym);
 
                 TRACE_BYTECODE(_u("%12s %d\n"), sym->GetName().GetBuffer(), sym->GetScopeSlot());
             }

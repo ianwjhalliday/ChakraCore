@@ -52,9 +52,9 @@ private:
 
     AssignmentState assignmentState;
 
-public:
-    Symbol(SymbolName const& name, ParseNode *decl, SymbolType symbolType) :
+    Symbol(SymbolName const& name, IdentPtr pid, ParseNode *decl, SymbolType symbolType) :
         name(name),
+        pid(pid),
         decl(decl),
         next(nullptr),
         location(Js::Constants::NoRegister),
@@ -90,6 +90,16 @@ public:
             Output::Print(_u("HasFuncDecl: %s\n"), this->GetName().GetBuffer());
             Output::Flush();
         }
+    }
+
+public:
+    static Symbol* New(ArenaAllocator* alloc, IdentPtr pid, ParseNode* decl, SymbolType symbolType)
+    {
+        const char16 *name = reinterpret_cast<const char16*>(pid->Psz());
+        int nameLength = pid->Cch();
+        SymbolName symName(name, nameLength);
+
+        return Anew(alloc, Symbol, symName, pid, decl, symbolType);
     }
 
     bool MatchName(const char16 *key, int length)
@@ -392,10 +402,6 @@ public:
 
     Symbol * GetFuncScopeVarSym() const;
 
-    void SetPid(IdentPtr pid)
-    {
-        this->pid = pid;
-    }
     IdentPtr GetPid() const
     {
         return pid;

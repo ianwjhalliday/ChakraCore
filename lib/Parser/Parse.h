@@ -302,7 +302,6 @@ public:
     void WaitForBackgroundJobs(BackgroundParser *bgp, CompileScriptException *pse);
     HRESULT ParseFunctionInBackground(ParseNodePtr pnodeFunc, ParseContext *parseContext, bool topLevelDeferred, CompileScriptException *pse);
 
-    void CheckPidIsValid(IdentPtr pid, bool autoArgumentsObject = false);
     void AddVarDeclToBlock(ParseNode *pnode);
     // Add a var declaration. Only use while parsing. Assumes m_ppnodeVar is pointing to the right place already
     ParseNodePtr CreateVarDeclNode(IdentPtr pid, SymbolType symbolType, bool autoArgumentsObject = false, ParseNodePtr pnodeFnc = NULL, bool checkReDecl = true);
@@ -648,7 +647,7 @@ private:
     void CheckArguments(ParseNodePtr pnode);
     void CheckArgumentsUse(IdentPtr pid, ParseNodePtr pnodeFnc);
 
-    void CheckStrictModeEvalArgumentsUsage(IdentPtr pid, ParseNodePtr pnode = NULL);
+    void CheckStrictModeEvalArgumentsUsage(IdentPtr pid, ParseNodePtr pnode = nullptr, bool autoArgumentsObject = false);
 
     // environments on which the strict mode is set, if found
     enum StrictModeEnvironment

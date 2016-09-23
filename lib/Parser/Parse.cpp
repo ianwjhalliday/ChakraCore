@@ -1286,22 +1286,6 @@ ParseNodePtr Parser::CreateTempRef(ParseNode* tempNode)
     return pnode;
 }
 
-void Parser::CheckPidIsValid(IdentPtr pid, bool autoArgumentsObject)
-{
-    if (IsStrictMode())
-    {
-        // in strict mode, variable named 'eval' cannot be created
-        if (pid == wellKnownPropertyPids.eval)
-        {
-            Error(ERREvalUsage);
-        }
-        else if (pid == wellKnownPropertyPids.arguments && !autoArgumentsObject)
-        {
-            Error(ERRArgsUsage);
-        }
-    }
-}
-
 // CreateVarDecl needs m_ppnodeVar to be pointing to the right function.
 // Post-parsing rewriting during bytecode gen may have m_ppnodeVar pointing to the last parsed function.
 // This function sets up m_ppnodeVar to point to the given pnodeFnc and creates the new var declaration.
@@ -1347,7 +1331,7 @@ ParseNodePtr Parser::CreateVarDeclNode(IdentPtr pid, SymbolType symbolType, bool
     {
         // this is not a temp - make sure temps go after this node
         m_ppnodeVar = &pnode->sxVar.pnodeNext;
-        CheckPidIsValid(pid, autoArgumentsObject);
+        CheckStrictModeEvalArgumentsUsage(pid, pnode, autoArgumentsObject);
     }
 
     return pnode;
@@ -1363,7 +1347,7 @@ ParseNodePtr Parser::CreateBlockScopedDeclNode(IdentPtr pid, OpCode nodeType)
     {
         pid->SetIsLetOrConst();
         AddVarDeclToBlock(pnode);
-        CheckPidIsValid(pid);
+        CheckStrictModeEvalArgumentsUsage(pid, pnode);
     }
 
     return pnode;
@@ -1938,17 +1922,17 @@ void Parser::CheckArgumentsUse(IdentPtr pid, ParseNodePtr pnodeFnc)
     }
 }
 
-void Parser::CheckStrictModeEvalArgumentsUsage(IdentPtr pid, ParseNodePtr pnode)
+void Parser::CheckStrictModeEvalArgumentsUsage(IdentPtr pid, ParseNodePtr pnode, bool autoArgumentsObject)
 {
-    if (pid != nullptr)
+    if (IsStrictMode())
     {
         // In strict mode, 'eval' / 'arguments' cannot be assigned to.
-        if ( pid == wellKnownPropertyPids.eval)
+        if (pid == wellKnownPropertyPids.eval)
         {
             Error(ERREvalUsage, pnode);
         }
 
-        if (pid == wellKnownPropertyPids.arguments)
+        if (pid == wellKnownPropertyPids.arguments && !autoArgumentsObject)
         {
             Error(ERRArgsUsage, pnode);
         }
@@ -5199,6 +5183,7 @@ bool Parser::ParseFncDeclHelper(ParseNodePtr pnodeFnc, LPCOLESTR pNameHint, usho
             {
                 if (pnodeFnc->sxFnc.pnodeName != nullptr && knopVarDecl == pnodeFnc->sxFnc.pnodeName->nop)
                 {
+                    // TODO[ianhall]: There appears to be no corresponding check for !buildAST.  Is this a bug?
                     CheckStrictModeEvalArgumentsUsage(pnodeFnc->sxFnc.pnodeName->sxVar.pid, pnodeFnc->sxFnc.pnodeName);
                 }
             }
@@ -5866,10 +5851,7 @@ bool Parser::ParseFncNames(ParseNodePtr pnodeFnc, ParseNodePtr pnodeFncParent, u
 
     Assert(m_token.tk == tkID || (m_token.tk == tkYIELD && !fDeclaration));
 
-    if (IsStrictMode())
-    {
-        CheckStrictModeEvalArgumentsUsage(m_token.GetIdentifier(m_phtbl));
-    }
+    CheckStrictModeEvalArgumentsUsage(m_token.GetIdentifier(m_phtbl));
     Token tokenBase = m_token;
     charcount_t ichMinBase = m_pscan->IchMinTok();
     charcount_t ichLimBase = m_pscan->IchLimTok();
@@ -5928,15 +5910,11 @@ void Parser::ValidateSourceElementList()
 
 void Parser::UpdateOrCheckForDuplicateInFormals(IdentPtr pid, SList<IdentPtr> *formals)
 {
-    bool isStrictMode = IsStrictMode();
-    if (isStrictMode)
-    {
-        CheckStrictModeEvalArgumentsUsage(pid);
-    }
+    CheckStrictModeEvalArgumentsUsage(pid);
 
     if (formals->Has(pid))
     {
-        if (isStrictMode)
+        if (IsStrictMode())
         {
             Error(ERRES5ArgSame);
         }
@@ -5985,7 +5963,6 @@ void Parser::ParseFncFormals(ParseNodePtr pnodeFnc, ParseNodePtr pnodeParentFnc,
         IdentPtr pid = m_token.GetIdentifier(m_phtbl);
 
         CreateVarDeclNode(pid, STFormal, false, nullptr, false);
-        CheckPidIsValid(pid);
 
         m_pscan->Scan();
 
@@ -7948,14 +7925,14 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
                 TrackAssignment<buildAST>(pnodeT, &operandToken);
                 if (buildAST)
                 {
-                    if (IsStrictMode() && pnodeT->nop == knopName)
+                    if (pnodeT->nop == knopName)
                     {
                         CheckStrictModeEvalArgumentsUsage(pnodeT->sxPid.pid);
                     }
                 }
                 else
                 {
-                    if (IsStrictMode() && operandToken.tk == tkID)
+                    if (operandToken.tk == tkID)
                     {
                         CheckStrictModeEvalArgumentsUsage(operandToken.pid);
                     }
@@ -8109,7 +8086,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
             fCanAssign = FALSE;
             if (buildAST)
             {
-                if (IsStrictMode() && pnode->nop == knopName)
+                if (pnode->nop == knopName)
                 {
                     CheckStrictModeEvalArgumentsUsage(pnode->sxPid.pid);
                 }
@@ -8119,7 +8096,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
             }
             else
             {
-                if (IsStrictMode() && term.tk == tkID)
+                if (term.tk == tkID)
                 {
                     CheckStrictModeEvalArgumentsUsage(term.pid);
                 }
@@ -8156,7 +8133,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
                 TrackAssignment<buildAST>(pnode, &term);
                 if (buildAST)
                 {
-                    if (IsStrictMode() && pnode->nop == knopName)
+                    if (pnode->nop == knopName)
                     {
                         CheckStrictModeEvalArgumentsUsage(pnode->sxPid.pid);
                     }
@@ -8172,7 +8149,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
                 }
                 else
                 {
-                    if (IsStrictMode() && term.tk == tkID)
+                    if (term.tk == tkID)
                     {
                         CheckStrictModeEvalArgumentsUsage(term.pid);
                     }
@@ -8898,20 +8875,10 @@ ParseNodePtr Parser::ParseCatch()
         }
         else
         {
-            if (IsStrictMode())
-            {
-                IdentPtr pid = m_token.GetIdentifier(m_phtbl);
-                if (pid == wellKnownPropertyPids.eval)
-                {
-                    Error(ERREvalUsage);
-                }
-                else if (pid == wellKnownPropertyPids.arguments)
-                {
-                    Error(ERRArgsUsage);
-                }
-            }
-
             pidCatch = m_token.GetIdentifier(m_phtbl);
+
+            CheckStrictModeEvalArgumentsUsage(pidCatch);
+
             PidRefStack *ref = this->PushPidRef(pidCatch);
 
             ParseNodePtr pnodeParam = CreateNameNode(pidCatch);
@@ -12106,14 +12073,14 @@ ParseNodePtr Parser::ParseDestructuredVarDecl(tokens declarationType, bool isDec
 
             if (buildAST)
             {
-                if (IsStrictMode() && pnodeElem != nullptr && pnodeElem->nop == knopName)
+                if (pnodeElem != nullptr && pnodeElem->nop == knopName)
                 {
                     CheckStrictModeEvalArgumentsUsage(pnodeElem->sxPid.pid);
                 }
             }
             else
             {
-                if (IsStrictMode() && token.tk == tkID)
+                if (token.tk == tkID)
                 {
                     CheckStrictModeEvalArgumentsUsage(token.pid);
                 }

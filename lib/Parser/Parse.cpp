@@ -1347,6 +1347,7 @@ ParseNodePtr Parser::CreateBlockScopedDeclNode(IdentPtr pid, OpCode nodeType)
     {
         pid->SetIsLetOrConst();
         AddVarDeclToBlock(pnode);
+        // TODO[ianhall]: There appears to be no corresponding check for !buildAST on the CreateModuleImportDeclNode path.  Is this a bug?
         CheckStrictModeEvalArgumentsUsage(pid, pnode);
     }
 
@@ -1668,7 +1669,7 @@ void Parser::BindPidRefsInScope(IdentPtr pid, Symbol *sym, int blockId, uint max
     }
 }
 
-void Parser::MarkEscapingRef(ParseNodePtr pnode, IdentToken *pToken)
+void Parser::MarkEscapingRef(ParseNodePtr pnode, IdentPtr pid)
 {
     if (m_currentNodeFunc == nullptr)
     {
@@ -1678,9 +1679,9 @@ void Parser::MarkEscapingRef(ParseNodePtr pnode, IdentToken *pToken)
     {
         this->SetNestedFuncEscapes();
     }
-    else if (pToken->pid)
+    else if (pid)
     {
-        PidRefStack *pidRef = pToken->pid->GetTopRef();
+        PidRefStack *pidRef = pid->GetTopRef();
         if (pidRef->sym)
         {
             if (pidRef->sym->GetSymbolType() == STFunction)
@@ -2738,22 +2739,21 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
     LPCOLESTR pNameHint,
     uint32 *pHintLength,
     uint32 *pShortNameOffset,
-    _Inout_opt_ IdentToken* pToken /*= nullptr*/,
+    _Out_opt_ IdentPtr* ppidTermId /*= nullptr*/,
     bool fUnaryOrParen /*= false*/,
     _Out_opt_ BOOL* pfCanAssign /*= nullptr*/,
-    _Inout_opt_ BOOL* pfLikelyPattern /*= nullptr*/,
+    _Out_opt_ BOOL* pfLikelyPattern /*= nullptr*/,
     _Out_opt_ bool* pfIsDotOrIndex /*= nullptr*/)
 {
     ParseNodePtr pnode = nullptr;
     charcount_t ichMin = 0;
     size_t iecpMin = 0;
     size_t iuMin;
-    IdentToken term;
+    IdentPtr pidTermId = nullptr;
     BOOL fInNew = FALSE;
     BOOL fCanAssign = TRUE;
     bool isAsyncExpr = false;
     bool isLambdaExpr = false;
-    Assert(pToken == nullptr || pToken->tk == tkNone); // Must be empty initially
 
     if (this->IsBackgroundParser())
     {
@@ -2771,7 +2771,6 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
         PidRefStack *ref = nullptr;
         IdentPtr pid = m_token.GetIdentifier(m_phtbl);
         charcount_t ichLim = m_pscan->IchLimTok();
-        size_t iecpLim = m_pscan->IecpLimTok();
         ichMin = m_pscan->IchMinTok();
         iecpMin  = m_pscan->IecpMinTok();
 
@@ -2813,14 +2812,12 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
             pnode->ichLim = ichLim;
             pnode->sxPid.SetSymRef(ref);
         }
-        else
-        {
-            // Remember the identifier start and end in case it turns out to be a statement label.
-            term.tk = tkID;
-            term.pid = pid; // Record the identifier for detection of eval
-            term.ichMin = static_cast<charcount_t>(iecpMin);
-            term.ichLim = static_cast<charcount_t>(iecpLim);
-        }
+
+        // Record the knopName identifier for eval, arguments strict mode
+        // checks and assignment tracking (necessary for deferred parse mode
+        // but used for both modes)
+        pidTermId = pid;
+
         CheckArgumentsUse(pid, GetCurrentFunctionNode());
         break;
     }
@@ -2867,7 +2864,7 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
         GetCurrentBlock()->sxBlock.blockId = m_nextBlockId++;
 
         this->m_parenDepth++;
-        pnode = ParseExpr<buildAST>(koplNo, &fCanAssign, TRUE, FALSE, nullptr, nullptr /*nameLength*/, nullptr  /*pShortNameOffset*/, &term, true);
+        pnode = ParseExpr<buildAST>(koplNo, &fCanAssign, TRUE, FALSE, nullptr, nullptr /*nameLength*/, nullptr  /*pShortNameOffset*/, &pidTermId, true);
         this->m_parenDepth--;
 
         ChkCurTok(tkRParen, ERRnoRparen);
@@ -3144,12 +3141,12 @@ LFunction :
         break;
     }
 
-    pnode = ParsePostfixOperators<buildAST>(pnode, fAllowCall, fInNew, &fCanAssign, &term, pfIsDotOrIndex);
+    pnode = ParsePostfixOperators<buildAST>(pnode, fAllowCall, fInNew, &fCanAssign, &pidTermId, pfIsDotOrIndex);
 
     // Pass back identifier if requested
-    if (pToken && term.tk == tkID)
+    if (ppidTermId)
     {
-        *pToken = term;
+        *ppidTermId = pidTermId;
     }
 
     if (pfCanAssign)
@@ -3202,12 +3199,6 @@ ParseNodePtr Parser::ParseRegExp()
     return pnode;
 }
 
-BOOL Parser::NodeIsEvalName(ParseNodePtr pnode)
-{
-    //WOOB 1107758 Special case of indirect eval binds to local scope in standards mode
-    return pnode->nop == knopName && (pnode->sxPid.pid == wellKnownPropertyPids.eval);
-}
-
 BOOL Parser::NodeIsIdent(ParseNodePtr pnode, IdentPtr pid)
 {
     for (;;)
@@ -3233,7 +3224,7 @@ ParseNodePtr Parser::ParsePostfixOperators(
     BOOL fAllowCall,
     BOOL fInNew,
     BOOL *pfCanAssign,
-    _Inout_ IdentToken* pToken,
+    _Inout_ IdentPtr* ppidTermId, 
     _Out_opt_ bool* pfIsDotOrIndex /*= nullptr */)
 {
     uint16 count = 0;
@@ -3268,8 +3259,8 @@ ParseNodePtr Parser::ParsePostfixOperators(
                     else
                     {
                         pnode = nullptr;
-                        pToken->tk = tkNone; // This is no longer an identifier
                     }
+                    *ppidTermId = nullptr; // This is no longer an identifier
                     fInNew = FALSE;
                 }
                 else
@@ -3283,20 +3274,21 @@ ParseNodePtr Parser::ParsePostfixOperators(
                     ParseNodePtr pnodeArgs = ParseArgList<buildAST>(&callOfConstants, &spreadArgCount, &count);
                     // We used to un-defer a deferred function body here if it was called as part of the expression that declared it.
                     // We now detect this case up front in ParseFncDecl, which is cheaper and simpler.
+
+                    // Detect call to "eval" and record it on the function.
+                    if (*ppidTermId == wellKnownPropertyPids.eval && count > 0)
+                    {
+                        this->MarkEvalCaller();
+                        fCallIsEval = true;
+                    }
+
                     if (buildAST)
                     {
                         pnode = CreateCallNode(knopCall, pnode, pnodeArgs);
                         Assert(pnode);
 
-                        // Detect call to "eval" and record it on the function.
                         // Note: we used to leave it up to the byte code generator to detect eval calls
                         // at global scope, but now it relies on the flag the parser sets, so set it here.
-
-                        if (count > 0 && this->NodeIsEvalName(pnode->sxCall.pnodeTarget))
-                        {
-                            this->MarkEvalCaller();
-                            fCallIsEval = true;
-                        }
 
                         pnode->sxCall.callOfConstants = callOfConstants;
                         pnode->sxCall.spreadArgCount = spreadArgCount;
@@ -3308,12 +3300,9 @@ ParseNodePtr Parser::ParsePostfixOperators(
                     else
                     {
                         pnode = nullptr;
-                        if (pToken->tk == tkID && pToken->pid == wellKnownPropertyPids.eval && count > 0) // Detect eval
-                        {
-                            this->MarkEvalCaller();
-                        }
-                        pToken->tk = tkNone; // This is no longer an identifier
                     }
+
+                    *ppidTermId = nullptr; // This is no longer an identifier
                 }
                 ChkCurTok(tkRParen, ERRnoRparen);
                 if (pfCanAssign)
@@ -3338,8 +3327,8 @@ ParseNodePtr Parser::ParsePostfixOperators(
                 else
                 {
                     pnode = nullptr;
-                    pToken->tk = tkNone; // This is no longer an identifier
                 }
+                *ppidTermId = nullptr; // This is no longer an identifier
                 ChkCurTok(tkRBrack, ERRnoRbrack);
                 if (pfCanAssign)
                 {
@@ -3445,8 +3434,8 @@ ParseNodePtr Parser::ParsePostfixOperators(
             else
             {
                 pnode = nullptr;
-                pToken->tk = tkNone;
             }
+            *ppidTermId = nullptr; // This is no longer an identifier
 
             if (pfCanAssign)
             {
@@ -3464,14 +3453,10 @@ ParseNodePtr Parser::ParsePostfixOperators(
         case tkStrTmplBasic:
         case tkStrTmplBegin:
             {
-                ParseNode* templateNode = ParseStringTemplateDecl<buildAST>(pnode);
+                pnode = ParseStringTemplateDecl<buildAST>(pnode);
 
-                if (!buildAST)
-                {
-                    pToken->tk = tkNone; // This is no longer an identifier
-                }
+                *ppidTermId = nullptr; // This is no longer an identifier
 
-                pnode = templateNode;
                 if (pfCanAssign)
                 {
                     *pfCanAssign = FALSE;
@@ -3555,10 +3540,10 @@ ParseNodePtr Parser::ParseArgList( bool *pCallOfConstants, uint16 *pSpreadArgCou
         if (count > 0xffffU)
             Error(ERRnoMemory);
         // Allow spread in argument lists.
-        IdentToken token;
-        pnodeArg = ParseExpr<buildAST>(koplCma, nullptr, TRUE, /* fAllowEllipsis */TRUE, NULL, nullptr, nullptr, &token);
+        IdentPtr pidTermId = nullptr;
+        pnodeArg = ParseExpr<buildAST>(koplCma, nullptr, TRUE, /* fAllowEllipsis */TRUE, NULL, nullptr, nullptr, &pidTermId);
         ++count;
-        this->MarkEscapingRef(pnodeArg, &token);
+        this->MarkEscapingRef(pnodeArg, pidTermId);
 
         if (buildAST)
         {
@@ -7758,7 +7743,7 @@ Checks for no expression by looking for a token that can follow an
 Expression grammar production.
 ***************************************************************************/
 template<bool buildAST>
-bool Parser::ParseOptionalExpr(ParseNodePtr* pnode, bool fUnaryOrParen, int oplMin, BOOL *pfCanAssign, BOOL fAllowIn, BOOL fAllowEllipsis, _Inout_opt_ IdentToken* pToken)
+bool Parser::ParseOptionalExpr(ParseNodePtr* pnode, bool fUnaryOrParen, int oplMin, BOOL *pfCanAssign, BOOL fAllowIn, BOOL fAllowEllipsis, _Out_opt_ IdentPtr* ppidTermId)
 {
     *pnode = nullptr;
     if (m_token.tk == tkRCurly ||
@@ -7773,15 +7758,15 @@ bool Parser::ParseOptionalExpr(ParseNodePtr* pnode, bool fUnaryOrParen, int oplM
         return false;
     }
 
-    IdentToken token;
-    ParseNodePtr pnodeT = ParseExpr<buildAST>(oplMin, pfCanAssign, fAllowIn, fAllowEllipsis, nullptr /*pNameHint*/, nullptr /*pHintLength*/, nullptr /*pShortNameOffset*/, &token, fUnaryOrParen);
+    IdentPtr pidTermId = nullptr;
+    ParseNodePtr pnodeT = ParseExpr<buildAST>(oplMin, pfCanAssign, fAllowIn, fAllowEllipsis, nullptr /*pNameHint*/, nullptr /*pHintLength*/, nullptr /*pShortNameOffset*/, &pidTermId, fUnaryOrParen);
     // Detect nested function escapes of the pattern "return function(){...}" or "yield function(){...}".
     // Doing so in the parser allows us to disable stack-nested-functions in common cases where an escape
     // is not detected at byte code gen time because of deferred parsing.
-    this->MarkEscapingRef(pnodeT, &token);
-    if (pToken)
+    this->MarkEscapingRef(pnodeT, pidTermId);
+    if (ppidTermId)
     {
-        *pToken = token;
+        *ppidTermId = pidTermId;
     }
     *pnode = pnodeT;
     return true;
@@ -7800,11 +7785,10 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
     LPCOLESTR pNameHint,
     uint32 *pHintLength,
     uint32 *pShortNameOffset,
-    _Inout_opt_ IdentToken* pToken,
+    _Out_opt_ IdentPtr* ppidTermId,
     bool fUnaryOrParen,
-    _Inout_opt_ bool* pfLikelyPattern)
+    _Out_opt_ bool* pfLikelyPattern)
 {
-    Assert(pToken == nullptr || pToken->tk == tkNone); // Must be empty initially
     int opl;
     OpCode nop;
     charcount_t ichMin;
@@ -7813,7 +7797,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
     BOOL fCanAssign = TRUE;
     bool assignmentStmt = false;
     bool fIsDotOrIndex = false;
-    IdentToken term;
+    IdentPtr pidTermId = nullptr;
     RestorePoint termStart;
     uint32 hintLength = 0;
     uint32 hintOffset = 0;
@@ -7844,7 +7828,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
     // Is the current token a unary operator?
     if (m_phtbl->TokIsUnop(m_token.tk, &opl, &nop) && nop != knopNone)
     {
-        IdentToken operandToken;
+        IdentPtr pidOperandTermId = nullptr;
         ichMin = m_pscan->IchMinTok();
 
         if (nop == knopYield)
@@ -7911,7 +7895,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
         else
         {
             // Disallow spread after a unary operator.
-            pnodeT = ParseExpr<buildAST>(opl, &fCanAssign, TRUE, FALSE, nullptr /*hint*/, nullptr /*hintLength*/, nullptr /*hintOffset*/, &operandToken, true);
+            pnodeT = ParseExpr<buildAST>(opl, &fCanAssign, TRUE, FALSE, nullptr /*hint*/, nullptr /*hintLength*/, nullptr /*hintOffset*/, &pidOperandTermId, true);
         }
 
         if (nop != knopYieldLeaf)
@@ -7922,21 +7906,8 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
                 {
                     Error(JSERR_CantAssignTo);
                 }
-                TrackAssignment<buildAST>(pnodeT, &operandToken);
-                if (buildAST)
-                {
-                    if (pnodeT->nop == knopName)
-                    {
-                        CheckStrictModeEvalArgumentsUsage(pnodeT->sxPid.pid);
-                    }
-                }
-                else
-                {
-                    if (operandToken.tk == tkID)
-                    {
-                        CheckStrictModeEvalArgumentsUsage(operandToken.pid);
-                    }
-                }
+                TrackAssignment(pidOperandTermId);
+                CheckStrictModeEvalArgumentsUsage(pidOperandTermId);
             }
             else if (nop == knopEllipsis)
             {
@@ -7986,8 +7957,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
             {
                 if (IsStrictMode())
                 {
-                    if ((buildAST && pnode->sxUni.pnode1->nop == knopName) ||
-                        (!buildAST && operandToken.tk == tkID))
+                    if (pidOperandTermId != nullptr)
                     {
                         Error(ERRInvalidDelete);
                     }
@@ -8015,7 +7985,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
     {
         ichMin = m_pscan->IchMinTok();
         BOOL fLikelyPattern = FALSE;
-        pnode = ParseTerm<buildAST>(TRUE, pNameHint, &hintLength, &hintOffset, &term, fUnaryOrParen, &fCanAssign, IsES6DestructuringEnabled() ? &fLikelyPattern : nullptr, &fIsDotOrIndex);
+        pnode = ParseTerm<buildAST>(TRUE, pNameHint, &hintLength, &hintOffset, &pidTermId, fUnaryOrParen, &fCanAssign, IsES6DestructuringEnabled() ? &fLikelyPattern : nullptr, &fIsDotOrIndex);
         if (pfLikelyPattern != nullptr)
         {
             *pfLikelyPattern = !!fLikelyPattern;
@@ -8082,26 +8052,18 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
             {
                 Error(JSERR_CantAssignTo);
             }
-            TrackAssignment<buildAST>(pnode, &term);
+            TrackAssignment(pidTermId);
             fCanAssign = FALSE;
+
+            CheckStrictModeEvalArgumentsUsage(pidTermId);
+            // This expression is not an identifier
+            pidTermId = nullptr;
+
             if (buildAST)
             {
-                if (pnode->nop == knopName)
-                {
-                    CheckStrictModeEvalArgumentsUsage(pnode->sxPid.pid);
-                }
                 this->CheckArguments(pnode);
                 pnode = CreateUniNode(tkInc == m_token.tk ? knopIncPost : knopDecPost, pnode);
                 pnode->ichLim = m_pscan->IchLimTok();
-            }
-            else
-            {
-                if (term.tk == tkID)
-                {
-                    CheckStrictModeEvalArgumentsUsage(term.pid);
-                }
-                // This expression is not an identifier
-                term.tk = tkNone;
             }
             m_pscan->Scan();
         }
@@ -8130,14 +8092,11 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
                 // binary operators. We also need to special case the left
                 // operand - it should only be a LeftHandSideExpression.
                 Assert(ParseNode::Grfnop(nop) & fnopAsg || nop == knopFncDecl);
-                TrackAssignment<buildAST>(pnode, &term);
+                TrackAssignment(pidTermId);
+                CheckStrictModeEvalArgumentsUsage(pidTermId);
+
                 if (buildAST)
                 {
-                    if (pnode->nop == knopName)
-                    {
-                        CheckStrictModeEvalArgumentsUsage(pnode->sxPid.pid);
-                    }
-
                     // Assignment stmt of the form "this.<id> = <expr>"
                     if (nop == knopAsg && pnode->nop == knopDot && pnode->sxBin.pnode1->nop == knopThis && pnode->sxBin.pnode2->nop == knopName)
                     {
@@ -8145,13 +8104,6 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
                         {
                             assignmentStmt = true;
                         }
-                    }
-                }
-                else
-                {
-                    if (term.tk == tkID)
-                    {
-                        CheckStrictModeEvalArgumentsUsage(term.pid);
                     }
                 }
             }
@@ -8181,7 +8133,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
         }
 
         // This expression is not an identifier
-        term.tk = tkNone;
+        pidTermId = nullptr;
 
         // Precedence is high enough. Consume the operator token.
         m_pscan->Scan();
@@ -8235,15 +8187,15 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
         else
         {
             // Parse the operand, make a new node, and look for more
-            IdentToken token;
-            pnodeT = ParseExpr<buildAST>(opl, NULL, fAllowIn, FALSE, pNameHint, &hintLength, &hintOffset, &token);
+            IdentPtr pidOperandTermId = nullptr;
+            pnodeT = ParseExpr<buildAST>(opl, NULL, fAllowIn, FALSE, pNameHint, &hintLength, &hintOffset, &pidOperandTermId);
 
             // Detect nested function escapes of the pattern "o.f = function(){...}" or "o[s] = function(){...}".
             // Doing so in the parser allows us to disable stack-nested-functions in common cases where an escape
             // is not detected at byte code gen time because of deferred parsing.
             if (fIsDotOrIndex && nop == knopAsg)
             {
-                this->MarkEscapingRef(pnodeT, &token);
+                this->MarkEscapingRef(pnodeT, pidOperandTermId);
             }
 
             if (buildAST)
@@ -8316,9 +8268,9 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
     }
 
     // Pass back identifier if requested
-    if (pToken && term.tk == tkID)
+    if (ppidTermId)
     {
-        *pToken = term;
+        *ppidTermId = pidTermId;
     }
 
     //Track "obj.a" assignment patterns here - Promote the Assignment state for the property's PID.
@@ -8360,28 +8312,13 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
     return pnode;
 }
 
-template<bool buildAST>
-void Parser::TrackAssignment(ParseNodePtr pnodeT, IdentToken* pToken)
+void Parser::TrackAssignment(IdentPtr pidTermId)
 {
-    if (buildAST)
+    if (pidTermId != nullptr)
     {
-        Assert(pnodeT != nullptr);
-        if (pnodeT->nop == knopName)
-        {
-            PidRefStack *ref = pnodeT->sxPid.pid->GetTopRef();
-            Assert(ref);
-            ref->isAsg = true;
-        }
-    }
-    else
-    {
-        Assert(pToken != nullptr);
-        if (pToken->tk == tkID)
-        {
-            PidRefStack *ref = pToken->pid->GetTopRef();
-            Assert(ref);
-            ref->isAsg = true;
-        }
+        PidRefStack *ref = pidTermId->GetTopRef();
+        Assert(ref);
+        ref->isAsg = true;
     }
 }
 
@@ -9225,7 +9162,7 @@ LDefaultTokenFor:
                         /*pHint*/nullptr,
                         /*pHintLength*/nullptr,
                         /*pShortNameOffset*/nullptr,
-                        /*pToken*/nullptr,
+                        /*ppidTermId*/nullptr,
                         /**fUnaryOrParen*/false,
                         &fLikelyPattern);
                 }
@@ -9296,7 +9233,11 @@ LDefaultTokenFor:
                 pnode->sxForInOrForOf.pnodeObj = pnodeObj;
                 pnode->ichLim = ichLim;
                 
-                TrackAssignment<true>(pnodeT, nullptr);
+                // TODO[ianhall]: Is this a bug? TrackAssignment needs to be called in both buildAST and !buildAST modes, doesn't it?
+                if (pnodeT->nop == knopName)
+                {
+                    TrackAssignment(pnodeT->sxPid.pid);
+                }
             }
             PushStmt<buildAST>(&stmt, pnode, isForOf ? knopForOf : knopForIn, pLabelIdList);
             ParseNodePtr pnodeBody = ParseStatement<buildAST>();
@@ -11740,7 +11681,8 @@ ParseNodePtr Parser::ConvertArrayToArrayPattern(ParseNodePtr pnode)
         }
         else if (item->nop == knopName)
         {
-            TrackAssignment<true>(item, nullptr);
+            // TODO[ianhall]: Is this a bug? TrackAssignment needs to be called in both buildAST and !buildAST modes, doesn't it?
+            TrackAssignment(item->sxPid.pid);
         }
     });
 
@@ -11794,7 +11736,8 @@ ParseNodePtr Parser::GetRightSideNodeFromPattern(ParseNodePtr pnode)
         rightNode = pnode;
         if (op == knopName)
         {
-            TrackAssignment<true>(pnode, nullptr);
+            // TODO[ianhall]: Is this a bug? TrackAssignment needs to be called in both buildAST and !buildAST modes, doesn't it?
+            TrackAssignment(pnode->sxPid.pid);
         }
     }
 
@@ -12042,9 +11985,9 @@ ParseNodePtr Parser::ParseDestructuredVarDecl(tokens declarationType, bool isDec
         if (!isDecl)
         {
             BOOL fCanAssign;
-            IdentToken token;
+            IdentPtr pidTermId = nullptr;
             // Look for postfix operator
-            pnodeElem = ParsePostfixOperators<buildAST>(pnodeElem, TRUE, FALSE, &fCanAssign, &token);
+            pnodeElem = ParsePostfixOperators<buildAST>(pnodeElem, TRUE, FALSE, &fCanAssign, &pidTermId);
         }
     }
     else if (m_token.tk == tkSUPER || m_token.tk == tkID)
@@ -12059,9 +12002,9 @@ ParseNodePtr Parser::ParseDestructuredVarDecl(tokens declarationType, bool isDec
         else
         {
             BOOL fCanAssign;
-            IdentToken token;
+            IdentPtr pidTermId = nullptr;
             // We aren't declaring anything, so scan the ID reference manually.
-            pnodeElem = ParseTerm<buildAST>(/* fAllowCall */ m_token.tk != tkSUPER, nullptr /*pNameHint*/, nullptr /*pHintLength*/, nullptr /*pShortNameOffset*/, &token, false,
+            pnodeElem = ParseTerm<buildAST>(/* fAllowCall */ m_token.tk != tkSUPER, nullptr /*pNameHint*/, nullptr /*pHintLength*/, nullptr /*pShortNameOffset*/, &pidTermId, false,
                                                              &fCanAssign);
 
             // In this destructuring case we can force error here as we cannot assign.
@@ -12071,21 +12014,7 @@ ParseNodePtr Parser::ParseDestructuredVarDecl(tokens declarationType, bool isDec
                 Error(ERRInvalidAssignmentTarget);
             }
 
-            if (buildAST)
-            {
-                if (pnodeElem != nullptr && pnodeElem->nop == knopName)
-                {
-                    CheckStrictModeEvalArgumentsUsage(pnodeElem->sxPid.pid);
-                }
-            }
-            else
-            {
-                if (token.tk == tkID)
-                {
-                    CheckStrictModeEvalArgumentsUsage(token.pid);
-                }
-                token.tk = tkNone;
-            }
+            CheckStrictModeEvalArgumentsUsage(pidTermId);
         }
     }
     else if (!((m_token.tk == tkComma || m_token.tk == tkRBrack || m_token.tk == tkRCurly) && allowEmptyExpression))

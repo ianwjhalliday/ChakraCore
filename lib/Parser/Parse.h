@@ -631,19 +631,6 @@ public:
     }
 
 private:
-    struct IdentToken
-    {
-        tokens tk;
-        IdentPtr pid;
-        charcount_t ichMin;
-        charcount_t ichLim;
-
-        IdentToken()
-            : tk(tkNone), pid(NULL)
-        {
-        }
-    };
-
     void CheckArguments(ParseNodePtr pnode);
     void CheckArgumentsUse(IdentPtr pid, ParseNodePtr pnodeFnc);
 
@@ -700,7 +687,7 @@ private:
     template<const bool backgroundPidRefs>
     void BindPidRefs(BlockInfoStack *blockInfo, uint maxBlockId = (uint)-1);
     void BindPidRefsInScope(IdentPtr pid, Symbol *sym, int blockId, uint maxBlockId = (uint)-1);
-    void MarkEscapingRef(ParseNodePtr pnode, IdentToken *pToken);
+    void MarkEscapingRef(ParseNodePtr pnode, IdentPtr pid);
     void SetNestedFuncEscapes() const;
     void PushScope(Scope *scope);
     void PopScope(Scope *scope);
@@ -766,41 +753,43 @@ private:
     void FinishFncNode(ParseNodePtr pnodeFnc);
 
     template<bool buildAST> bool ParseOptionalExpr(
-        ParseNodePtr* pnode,
+        _Out_ ParseNodePtr* pnode,
         bool fUnaryOrParen = false,
         int oplMin = koplNo,
-        BOOL *pfCanAssign = NULL,
+        BOOL *pfCanAssign = nullptr,
         BOOL fAllowIn = TRUE,
         BOOL fAllowEllipsis = FALSE,
-        _Inout_opt_ IdentToken* pToken = NULL);
+        _Out_opt_ IdentPtr* ppidTermId = nullptr);
 
     template<bool buildAST> ParseNodePtr ParseExpr(
         int oplMin = koplNo,
-        BOOL *pfCanAssign = NULL,
+        BOOL *pfCanAssign = nullptr,
         BOOL fAllowIn = TRUE,
         BOOL fAllowEllipsis = FALSE,
-        LPCOLESTR pHint = NULL,
+        LPCOLESTR pHint = nullptr,
         uint32 *pHintLength = nullptr,
         uint32 *pShortNameOffset = nullptr,
-        _Inout_opt_ IdentToken* pToken = NULL,
+        _Out_opt_ IdentPtr* ppidTermId = nullptr,
         bool fUnaryOrParen = false,
-        _Inout_opt_ bool* pfLikelyPattern = nullptr);
+        _Out_opt_ bool* pfLikelyPattern = nullptr);
+
     template<bool buildAST> ParseNodePtr ParseTerm(
         BOOL fAllowCall = TRUE,
         LPCOLESTR pNameHint = nullptr,
         uint32 *pHintLength = nullptr,
         uint32 *pShortNameOffset = nullptr,
-        _Inout_opt_ IdentToken* pToken = nullptr,
+        _Out_opt_ IdentPtr* ppidTermId = nullptr,
         bool fUnaryOrParen = false,
         _Out_opt_ BOOL* pfCanAssign = nullptr,
-        _Inout_opt_ BOOL* pfLikelyPattern = nullptr,
+        _Out_opt_ BOOL* pfLikelyPattern = nullptr,
         _Out_opt_ bool* pfIsDotOrIndex = nullptr);
+
     template<bool buildAST> ParseNodePtr ParsePostfixOperators(
         ParseNodePtr pnode,
         BOOL fAllowCall, 
         BOOL fInNew, 
         BOOL *pfCanAssign, 
-        _Inout_ IdentToken* pToken, 
+        _Inout_ IdentPtr* ppidTermId, 
         _Out_opt_ bool* pfIsDotOrIndex = nullptr);
 
     void ThrowNewTargetSyntaxErrForGlobalScope();
@@ -822,7 +811,6 @@ private:
     template<bool buildAST> IdentPtr ParseImportOrExportFromClause(bool throwIfNotFound);
 
     BOOL NodeIsIdent(ParseNodePtr pnode, IdentPtr pid);
-    BOOL NodeIsEvalName(ParseNodePtr pnode);
 
     BOOL IsConstantInFunctionCall(ParseNodePtr pnode);
     BOOL IsConstantInArrayLiteral(ParseNodePtr pnode);
@@ -910,7 +898,7 @@ public:
 
 private:
     void DeferOrEmitPotentialSpreadError(ParseNodePtr pnodeT);
-    template<bool buildAST> void TrackAssignment(ParseNodePtr pnodeT, IdentToken* pToken);
+    void TrackAssignment(IdentPtr pidTermId);
     PidRefStack* PushPidRef(IdentPtr pid);
     PidRefStack* FindOrAddPidRef(IdentPtr pid, int blockId, Js::LocalFunctionId funcId);
     void RemovePrevPidRef(IdentPtr pid, PidRefStack *lastRef);

@@ -342,7 +342,7 @@ namespace UnifiedRegex
             this->valueOfLastSurrogate = codePoint;
 
             // When parsing without AST we aren't given an allocator. In addition, only the 2 lines above are used during Pass 0;
-            // while the bottom is used during Pass 1 (which isn't done when ParseNoAST)
+            // while the bottom is used during Pass 1 (which isn't done when buildAST == false)
             if(this->ctAllocator != nullptr)
             {
                 SurrogatePairTracker* node = Anew(this->ctAllocator, SurrogatePairTracker, location, this->tempLocationOfRange, codePoint, consumptionLength, this->m_cMultiUnits);
@@ -2772,6 +2772,7 @@ namespace UnifiedRegex
     }
 
     template <typename P, const bool IsLiteral>
+    template <bool buildAST>
     Node* Parser<P, IsLiteral>::ParseLiteral
         ( const EncodedChar* input
         , const EncodedChar* inputLim
@@ -2779,7 +2780,7 @@ namespace UnifiedRegex
         , CharCount& outTotalEncodedChars
         , CharCount& outBodyChars
         , CharCount& outTotalChars
-        , RegexFlags& flags )
+        , RegexFlags& flags)
     {
         Assert(IsLiteral);
         Assert(input != 0);
@@ -2802,6 +2803,11 @@ namespace UnifiedRegex
         this->unicodeFlagPresent = (flags & UnifiedRegex::UnicodeRegexFlag) == UnifiedRegex::UnicodeRegexFlag;
         this->caseInsensitiveFlagPresent = (flags & UnifiedRegex::IgnoreCaseRegexFlag) == UnifiedRegex::IgnoreCaseRegexFlag;
         Assert(!this->unicodeFlagPresent || scriptContext->GetConfig()->IsES6UnicodeExtensionsEnabled());
+        if (!buildAST)
+        {
+            outTotalEncodedChars = Chars<EncodedChar>::OSB(next, input);
+            outTotalChars = Pos();
+        }
 
         // If this HR has been set, that means we have an earlier failure than the one caught above.
         if (this->deferredIfNotUnicodeError != nullptr && !this->unicodeFlagPresent)
@@ -2813,62 +2819,37 @@ namespace UnifiedRegex
             throw ParseError(*deferredIfUnicodeError);
         }
 
-        // Used below to proceed to the end of the regex
-        const EncodedChar *pastOptions = next;
-
-        this->currentSurrogatePairNode = this->surrogatePairList;
-
-        // Body, pass 1
-        SetPosition(input, inputLim, true);
-        Node* root = PatternPass1();
-        Assert(outBodyEncodedChars == Chars<EncodedChar>::OSB(next, input));
-        Assert(outBodyChars == Pos());
-
-        next = pastOptions;
-        outTotalEncodedChars = Chars<EncodedChar>::OSB(next, input);
-        outTotalChars = Pos();
-
-        return root;
-    }
-
-    template <typename P, const bool IsLiteral>
-    void Parser<P, IsLiteral>::ParseLiteralNoAST
-        ( const EncodedChar* input
-        , const EncodedChar* inputLim
-        , CharCount& outBodyEncodedChars
-        , CharCount& outTotalEncodedChars
-        , CharCount& outBodyChars
-        , CharCount& outTotalChars )
-    {
-        Assert(IsLiteral);
-        Assert(input != 0);
-        Assert(inputLim >= input); // *inputLim need not be 0 because of deferred parsing
-
-        // Body, pass 0
-        SetPosition(input, inputLim, true);
-        PatternPass0();
-        outBodyEncodedChars = Chars<EncodedChar>::OSB(next, input);
-        outBodyChars = Pos();
-
-        // Options
-        ECMust('/', ERRnoSlash);
-        RegexFlags dummyFlags = NoRegexFlags;
-        Options(dummyFlags);
-        this->unicodeFlagPresent = (dummyFlags & UnifiedRegex::UnicodeRegexFlag) == UnifiedRegex::UnicodeRegexFlag;
-        this->caseInsensitiveFlagPresent = (dummyFlags & UnifiedRegex::IgnoreCaseRegexFlag) == UnifiedRegex::IgnoreCaseRegexFlag;
-        outTotalEncodedChars = Chars<EncodedChar>::OSB(next, input);
-        outTotalChars = Pos();
-
-        // If this HR has been set, that means we have an earlier failure than the one caught above.
-        if (this->deferredIfNotUnicodeError != nullptr && !this->unicodeFlagPresent)
+        if (buildAST)
         {
-            throw ParseError(*deferredIfNotUnicodeError);
+            // Used below to proceed to the end of the regex
+            const EncodedChar *pastOptions = next;
+
+            this->currentSurrogatePairNode = this->surrogatePairList;
+
+            // Body, pass 1
+            SetPosition(input, inputLim, true);
+            Node* root = PatternPass1();
+            Assert(outBodyEncodedChars == Chars<EncodedChar>::OSB(next, input));
+            Assert(outBodyChars == Pos());
+
+            next = pastOptions;
+            outTotalEncodedChars = Chars<EncodedChar>::OSB(next, input);
+            outTotalChars = Pos();
+
+            return root;
         }
-        else if(this->deferredIfUnicodeError != nullptr && this->unicodeFlagPresent)
+        else
         {
-            throw ParseError(*deferredIfUnicodeError);
+            return nullptr;
         }
     }
+
+    template Node* Parser<NullTerminatedUnicodeEncodingPolicy, true>::ParseLiteral<true>(const EncodedChar*, const EncodedChar*, CharCount&, CharCount&, CharCount&, CharCount&, RegexFlags&);
+    template Node* Parser<NullTerminatedUnicodeEncodingPolicy, true>::ParseLiteral<false>(const EncodedChar*, const EncodedChar*, CharCount&, CharCount&, CharCount&, CharCount&, RegexFlags&);
+    template Node* Parser<NullTerminatedUTF8EncodingPolicy, true>::ParseLiteral<true>(const EncodedChar*, const EncodedChar*, CharCount&, CharCount&, CharCount&, CharCount&, RegexFlags&);
+    template Node* Parser<NullTerminatedUTF8EncodingPolicy, true>::ParseLiteral<false>(const EncodedChar*, const EncodedChar*, CharCount&, CharCount&, CharCount&, CharCount&, RegexFlags&);
+    template Node* Parser<NotNullTerminatedUTF8EncodingPolicy, true>::ParseLiteral<true>(const EncodedChar*, const EncodedChar*, CharCount&, CharCount&, CharCount&, CharCount&, RegexFlags&);
+    template Node* Parser<NotNullTerminatedUTF8EncodingPolicy, true>::ParseLiteral<false>(const EncodedChar*, const EncodedChar*, CharCount&, CharCount&, CharCount&, CharCount&, RegexFlags&);
 
     template <typename P, const bool IsLiteral>
     template <const bool buildAST>

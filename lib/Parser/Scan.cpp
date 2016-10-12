@@ -775,13 +775,14 @@ template <typename EncodingPolicy>
 tokens Scanner<EncodingPolicy>::TryRescanRegExp()
 {
     EncodedCharPtr current = m_currentCharacter;
-    tokens result = RescanRegExp();
+    tokens result = RescanRegExp<true>();
     if (result == tkScanError)
         m_currentCharacter = current;
     return result;
 }
 
 template <typename EncodingPolicy>
+template <bool buildAST>
 tokens Scanner<EncodingPolicy>::RescanRegExp()
 {
 #if DEBUG
@@ -808,46 +809,14 @@ tokens Scanner<EncodingPolicy>::RescanRegExp()
 
     {
         ArenaAllocator alloc(_u("RescanRegExp"), m_parser->GetAllocator()->GetPageAllocator(), m_parser->GetAllocator()->outOfMemoryFunc);
-        tk = ScanRegExpConstant(&alloc);
+        tk = ScanRegExpConstant<buildAST>(&alloc);
     }
 
     return tk;
 }
 
-template <typename EncodingPolicy>
-tokens Scanner<EncodingPolicy>::RescanRegExpNoAST()
-{
-#if DEBUG
-    switch (m_ptoken->tk)
-    {
-    case tkDiv:
-        Assert(m_currentCharacter == m_pchMinTok + 1);
-        break;
-    case tkAsgDiv:
-        Assert(m_currentCharacter == m_pchMinTok + 2);
-        break;
-    default:
-        AssertMsg(FALSE, "Who is calling RescanRegExpNoParseTree?");
-        break;
-    }
-#endif //DEBUG
-
-    m_currentCharacter = m_pchMinTok;
-    if (*m_currentCharacter != '/')
-        Error(ERRnoSlash);
-    m_currentCharacter++;
-
-    tokens tk = tkNone;
-
-    {
-        ArenaAllocator alloc(_u("RescanRegExp"), m_parser->GetAllocator()->GetPageAllocator(), m_parser->GetAllocator()->outOfMemoryFunc);
-        {
-            tk = ScanRegExpConstantNoAST(&alloc);
-        }
-    }
-
-    return tk;
-}
+template tokens Scanner<NotNullTerminatedUTF8EncodingPolicy>::RescanRegExp<true>();
+template tokens Scanner<NotNullTerminatedUTF8EncodingPolicy>::RescanRegExp<false>();
 
 template <typename EncodingPolicy>
 tokens Scanner<EncodingPolicy>::RescanRegExpTokenizer()
@@ -880,7 +849,7 @@ tokens Scanner<EncodingPolicy>::RescanRegExpTokenizer()
     TryFinally(
         [&]() /* try block */
         {
-            tk = this->ScanRegExpConstantNoAST(alloc->GetAllocator());
+            tk = this->ScanRegExpConstant<false>(alloc->GetAllocator());
         },
         [&](bool /* hasException */) /* finally block */
         {
@@ -891,6 +860,7 @@ tokens Scanner<EncodingPolicy>::RescanRegExpTokenizer()
 }
 
 template <typename EncodingPolicy>
+template <bool buildAST>
 tokens Scanner<EncodingPolicy>::ScanRegExpConstant(ArenaAllocator* alloc)
 {
     if (m_parser && m_parser->IsBackgroundParser())
@@ -905,24 +875,27 @@ tokens Scanner<EncodingPolicy>::ScanRegExpConstant(ArenaAllocator* alloc)
     // SEE ALSO: RegexHelper::PrimCompileDynamic()
 
 #ifdef PROFILE_EXEC
-    m_scriptContext->ProfileBegin(Js::RegexCompilePhase);
+    if (buildAST)
+    {
+        m_scriptContext->ProfileBegin(Js::RegexCompilePhase);
+    }
 #endif
-    ArenaAllocator* ctAllocator = alloc;
-    UnifiedRegex::StandardChars<EncodedChar>* standardEncodedChars = m_scriptContext->GetThreadContext()->GetStandardChars((EncodedChar*)0);
-    UnifiedRegex::StandardChars<char16>* standardChars = m_scriptContext->GetThreadContext()->GetStandardChars((char16*)0);
+    ThreadContext* threadContext = m_fSyntaxColor ? ThreadContext::GetContextForCurrentThread() : m_scriptContext->GetThreadContext();
+    UnifiedRegex::StandardChars<EncodedChar>* standardEncodedChars = threadContext->GetStandardChars((EncodedChar*)0);
+    UnifiedRegex::StandardChars<char16>* standardChars = threadContext->GetStandardChars((char16*)0);
 #if ENABLE_REGEX_CONFIG_OPTIONS
-    UnifiedRegex::DebugWriter *w = 0;
-    if (REGEX_CONFIG_FLAG(RegexDebug))
+    UnifiedRegex::DebugWriter* w = nullptr;
+    if (buildAST && REGEX_CONFIG_FLAG(RegexDebug))
         w = m_scriptContext->GetRegexDebugWriter();
-    if (REGEX_CONFIG_FLAG(RegexProfile))
+    if (buildAST && REGEX_CONFIG_FLAG(RegexProfile))
         m_scriptContext->GetRegexStatsDatabase()->BeginProfile();
 #endif
-    UnifiedRegex::Node* root = 0;
+    UnifiedRegex::Node* root = nullptr;
     charcount_t totalLen = 0, bodyChars = 0, totalChars = 0, bodyLen = 0;
     UnifiedRegex::RegexFlags flags = UnifiedRegex::NoRegexFlags;
     UnifiedRegex::Parser<EncodingPolicy, true> parser
             ( m_scriptContext
-            , ctAllocator
+            , alloc
             , standardEncodedChars
             , standardChars
             , this->IsFromExternalSource()
@@ -932,12 +905,15 @@ tokens Scanner<EncodingPolicy>::ScanRegExpConstant(ArenaAllocator* alloc)
             );
     try
     {
-        root = parser.ParseLiteral(m_currentCharacter, m_pchLast, bodyLen, totalLen, bodyChars, totalChars, flags);
+        root = parser.ParseLiteral<buildAST>(m_currentCharacter, m_pchLast, bodyLen, totalLen, bodyChars, totalChars, flags);
     }
     catch (UnifiedRegex::ParseError e)
     {
 #ifdef PROFILE_EXEC
-        m_scriptContext->ProfileEnd(Js::RegexCompilePhase);
+        if (buildAST)
+        {
+            m_scriptContext->ProfileEnd(Js::RegexCompilePhase);
+        }
 #endif
         if (m_fSyntaxColor)
             return ScanError(m_currentCharacter + e.encodedPos, tkRegExp);
@@ -947,7 +923,7 @@ tokens Scanner<EncodingPolicy>::ScanRegExpConstant(ArenaAllocator* alloc)
     }
 
     UnifiedRegex::RegexPattern* pattern;
-    if (m_parser->IsBackgroundParser())
+    if (buildAST && m_parser->IsBackgroundParser())
     {
         // Avoid allocating pattern from recycler on background thread. The main thread will create the pattern
         // and hook it to this parse node.
@@ -955,59 +931,12 @@ tokens Scanner<EncodingPolicy>::ScanRegExpConstant(ArenaAllocator* alloc)
     }
     else
     {
-        pattern = parser.template CompileProgram<true>(root, m_currentCharacter, totalLen, bodyChars, totalChars, flags);
+        pattern = parser.template CompileProgram<buildAST>(root, m_currentCharacter, totalLen, bodyChars, totalChars, buildAST ? flags : UnifiedRegex::NoRegexFlags);
     }
+    Assert(buildAST || pattern == nullptr);  // BuildAST == false, CompileProgram should return nullptr
     this->RestoreMultiUnits(this->m_cMultiUnits + parser.GetMultiUnits()); // m_currentCharacter changed, sync MultiUnits
 
     return m_ptoken->SetRegex(pattern, m_parser);
-}
-
-template<typename EncodingPolicy>
-tokens Scanner<EncodingPolicy>::ScanRegExpConstantNoAST(ArenaAllocator* alloc)
-{
-    if (m_parser && m_parser->IsBackgroundParser())
-    {
-        PROBE_STACK_NO_DISPOSE(m_scriptContext, Js::Constants::MinStackRegex);
-    }
-    else
-    {
-        PROBE_STACK(m_scriptContext, Js::Constants::MinStackRegex);
-    }
-
-    ThreadContext *threadContext = m_fSyntaxColor ? ThreadContext::GetContextForCurrentThread() : m_scriptContext->GetThreadContext();
-    UnifiedRegex::StandardChars<EncodedChar>* standardEncodedChars = threadContext->GetStandardChars((EncodedChar*)0);
-    UnifiedRegex::StandardChars<char16>* standardChars = threadContext->GetStandardChars((char16*)0);
-    charcount_t totalLen = 0, bodyChars = 0, totalChars = 0, bodyLen = 0;
-    UnifiedRegex::Parser<EncodingPolicy, true> parser
-            ( m_scriptContext
-            , alloc
-            , standardEncodedChars
-            , standardChars
-            , this->IsFromExternalSource()
-#if ENABLE_REGEX_CONFIG_OPTIONS
-            , 0
-#endif
-            );
-    try
-    {
-        parser.ParseLiteralNoAST(m_currentCharacter, m_pchLast, bodyLen, totalLen, bodyChars, totalChars);
-    }
-    catch (UnifiedRegex::ParseError e)
-    {
-        if (m_fSyntaxColor)
-            return ScanError(m_currentCharacter + e.encodedPos, tkRegExp);
-
-        m_currentCharacter += e.encodedPos;
-        Error(e.error);
-        // never reached
-    }
-
-    UnifiedRegex::RegexPattern* pattern = parser.template CompileProgram<false>(nullptr, m_currentCharacter, totalLen, bodyChars, totalChars, UnifiedRegex::NoRegexFlags);
-    Assert(pattern == nullptr);  // BuildAST == false, CompileProgram should return nullptr
-    this->RestoreMultiUnits(this->m_cMultiUnits + parser.GetMultiUnits()); // m_currentCharacter changed, sync MultiUnits
-
-    return (m_ptoken->tk = tkRegExp);
-
 }
 
 template<typename EncodingPolicy>

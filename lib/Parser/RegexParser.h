@@ -226,6 +226,7 @@ namespace UnifiedRegex
         //       will find the natural end of the regex literal before passing inputLim
         //  - input may contain nulls before the inputLim
 
+        template <bool buildAST>
         Node* ParseLiteral
             ( const EncodedChar* input          // non null, null terminated (may contain embedded nulls)
             , const EncodedChar* inputLim       // see (*) above
@@ -234,14 +235,6 @@ namespace UnifiedRegex
             , CharCount& outBodyChars           // in unicode characters, not including ttrailing '/'
             , CharCount& outTotalChars          // in unicode characters, including trailing '/' and any options
             , RegexFlags& flags );
-
-        void ParseLiteralNoAST
-            ( const EncodedChar* input          // non null, null terminated
-            , const EncodedChar* inputLim       // see (*) above
-            , CharCount& outBodyEncodedChars
-            , CharCount& outTotalEncodedChars
-            , CharCount& outBodyChars
-            , CharCount& outTotalChars );
 
         template<const bool buildAST>
         RegexPattern* CompileProgram

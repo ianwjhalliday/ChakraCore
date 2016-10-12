@@ -413,8 +413,8 @@ public:
     }
 
     tokens TryRescanRegExp();
+    template <bool buildAST>
     tokens RescanRegExp();
-    tokens RescanRegExpNoAST();
     tokens RescanRegExpTokenizer();
 
     BOOL FHadNewLine(void)
@@ -746,8 +746,8 @@ private:
     BOOL FastIdentifierContinue(EncodedCharPtr&p, EncodedCharPtr last);
     tokens ScanIdentifierContinue(bool identifyKwds, bool fHasEscape, bool fHasMultiChar, EncodedCharPtr pchMin, EncodedCharPtr p, EncodedCharPtr *pp);
     tokens SkipComment(EncodedCharPtr *pp, /* out */ bool* containTypeDef);
+    template <bool buildAST>
     tokens ScanRegExpConstant(ArenaAllocator* alloc);
-    tokens ScanRegExpConstantNoAST(ArenaAllocator* alloc);
     BOOL oFScanNumber(double *pdbl, bool& likelyInt);
     EncodedCharPtr FScanNumber(EncodedCharPtr p, double *pdbl, bool& likelyInt);
     IdentPtr PidOfIdentiferAt(EncodedCharPtr p, EncodedCharPtr last, bool fHadEscape, bool fHasMultiChar);

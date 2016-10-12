@@ -3276,7 +3276,7 @@ ParseNodePtr Parser::ParseRegExp()
 
     if (buildAST || m_doingFastScan)
     {
-        m_pscan->RescanRegExp();
+        m_pscan->RescanRegExp<true>();
 
         BOOL saveDeferringAST = this->m_deferringAST;
         if (m_doingFastScan)
@@ -3304,7 +3304,7 @@ ParseNodePtr Parser::ParseRegExp()
     }
     else
     {
-        m_pscan->RescanRegExpNoAST();
+        m_pscan->RescanRegExp<false>();
     }
     Assert(m_token.tk == tkRegExp);
 

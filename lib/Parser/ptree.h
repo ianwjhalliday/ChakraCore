@@ -143,12 +143,6 @@ struct PnVar
     }
 };
 
-struct PnLabel
-{
-    IdentPtr pid;
-    ParseNodePtr pnodeNext;
-};
-
 struct PnArrLit : PnUni
 {
     uint count;
@@ -635,7 +629,6 @@ struct ParseNode
         PnIf            sxIf;           // if
         PnInt           sxInt;          // integer constant
         PnJump          sxJump;         // break and continue
-        PnLabel         sxLabel;        // label nodes
         PnLoop          sxLoop;         // base for loop nodes
         PnModule        sxModule;       // global module
         PnPid           sxPid;          // identifier or string
@@ -682,7 +675,7 @@ struct ParseNode
 
     BOOL IsStatement()
     {
-        return (nop >= knopList && nop != knopLabel) || ((Grfnop(nop) & fnopAsg) != 0);
+        return nop >= knopList || ((Grfnop(nop) & fnopAsg) != 0);
     }
 
     uint Grfnop(void)
@@ -773,7 +766,6 @@ const int kcbPnHelperCall3  = kcbPnNone + sizeof(PnHelperCall2);
 const int kcbPnIf           = kcbPnNone + sizeof(PnIf);
 const int kcbPnInt          = kcbPnNone + sizeof(PnInt);
 const int kcbPnJump         = kcbPnNone + sizeof(PnJump);
-const int kcbPnLabel        = kcbPnNone + sizeof(PnLabel);
 const int kcbPnModule       = kcbPnNone + sizeof(PnModule);
 const int kcbPnPid          = kcbPnNone + sizeof(PnPid);
 const int kcbPnProg         = kcbPnNone + sizeof(PnProg);

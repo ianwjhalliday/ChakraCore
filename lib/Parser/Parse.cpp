@@ -45,15 +45,14 @@ struct StmtNest
         struct
         {
             ParseNodePtr pnodeStmt; // This statement node.
-            ParseNodePtr pnodeLab;  // Labels for this statement.
         };
         struct
         {
             bool isDeferred : 1;
             OpCode op;              // This statement operation.
-            LabelId* pLabelId;      // Labels for this statement.
         };
     };
+    LabelId* pLabelId;              // Labels for this statement.
     StmtNest *pstmtOuter;           // Enclosing statement.
 };
 
@@ -641,14 +640,14 @@ void Parser::FinishBackgroundRegExpNodes()
 }
 #endif
 
-LabelId* Parser::CreateLabelId(IdentToken* pToken)
+LabelId* Parser::CreateLabelId(IdentPtr pid)
 {
     LabelId* pLabelId;
 
     pLabelId = (LabelId*)m_nodeAllocator.Alloc(sizeof(LabelId));
     if (NULL == pLabelId)
         Error(ERRnoMemory);
-    pLabelId->pid = pToken->pid;
+    pLabelId->pid = pid;
     pLabelId->next = NULL;
 
     return pLabelId;
@@ -1434,11 +1433,11 @@ ParseNodePtr Parser::StartParseBlockWithCapacity(PnodeBlockType blockType, Scope
         PushScope(scope);
     }
 
-    return StartParseBlockHelper<buildAST>(blockType, scope, nullptr, nullptr);
+    return StartParseBlockHelper<buildAST>(blockType, scope, nullptr);
 }
 
 template<bool buildAST>
-ParseNodePtr Parser::StartParseBlock(PnodeBlockType blockType, ScopeType scopeType, ParseNodePtr pnodeLabel, LabelId* pLabelId)
+ParseNodePtr Parser::StartParseBlock(PnodeBlockType blockType, ScopeType scopeType, LabelId* pLabelId)
 {
     Scope *scope = nullptr;
     // Block scopes are created lazily when we discover block-scoped content.
@@ -1448,17 +1447,17 @@ ParseNodePtr Parser::StartParseBlock(PnodeBlockType blockType, ScopeType scopeTy
         PushScope(scope);
     }
 
-    return StartParseBlockHelper<buildAST>(blockType, scope, pnodeLabel, pLabelId);
+    return StartParseBlockHelper<buildAST>(blockType, scope, pLabelId);
 }
 
 template<bool buildAST>
-ParseNodePtr Parser::StartParseBlockHelper(PnodeBlockType blockType, Scope *scope, ParseNodePtr pnodeLabel, LabelId* pLabelId)
+ParseNodePtr Parser::StartParseBlockHelper(PnodeBlockType blockType, Scope *scope, LabelId* pLabelId)
 {
     ParseNodePtr pnodeBlock = CreateBlockNode(blockType);
     pnodeBlock->sxBlock.scope = scope;
     BlockInfoStack *newBlockInfo = PushBlockInfo(pnodeBlock);
 
-    PushStmt<buildAST>(&newBlockInfo->pstmt, pnodeBlock, knopBlock, pnodeLabel, pLabelId);
+    PushStmt<buildAST>(&newBlockInfo->pstmt, pnodeBlock, knopBlock, pLabelId);
 
     return pnodeBlock;
 }
@@ -1521,13 +1520,13 @@ void Parser::PopFuncBlockScope(ParseNodePtr *ppnodeScopeSave, ParseNodePtr *ppno
 }
 
 template<bool buildAST>
-ParseNodePtr Parser::ParseBlock(ParseNodePtr pnodeLabel, LabelId* pLabelId)
+ParseNodePtr Parser::ParseBlock(LabelId* pLabelId)
 {
     ParseNodePtr pnodeBlock = nullptr;
     ParseNodePtr *ppnodeScopeSave = nullptr;
     ParseNodePtr *ppnodeExprScopeSave = nullptr;
 
-    pnodeBlock = StartParseBlock<buildAST>(PnodeBlockType::Regular, ScopeType_Block, pnodeLabel, pLabelId);
+    pnodeBlock = StartParseBlock<buildAST>(PnodeBlockType::Regular, ScopeType_Block, pLabelId);
 
     BlockInfoStack* outerBlockInfo = m_currentBlockInfo->pBlockInfoOuter;
     if (outerBlockInfo != nullptr && outerBlockInfo->pnodeBlock != nullptr
@@ -2020,34 +2019,6 @@ void Parser::ReduceDeferredScriptLength(size_t chars)
             m_stoppedDeferredParse = TRUE;
         }
     }
-}
-
-/***************************************************************************
-Look for an existing label with the given name.
-***************************************************************************/
-BOOL Parser::PnodeLabelNoAST(IdentToken* pToken, LabelId* pLabelIdList)
-{
-    StmtNest* pStmt;
-    LabelId* pLabelId;
-
-    // Look in the label stack.
-    for (pStmt = m_pstmtCur; pStmt != nullptr; pStmt = pStmt->pstmtOuter)
-    {
-        for (pLabelId = pStmt->pLabelId; pLabelId != nullptr; pLabelId = pLabelId->next)
-        {
-            if (pLabelId->pid == pToken->pid)
-                return TRUE;
-        }
-    }
-
-    // Also look in the pnodeLabels list.
-    for (pLabelId = pLabelIdList; pLabelId != nullptr; pLabelId = pLabelId->next)
-    {
-        if (pLabelId->pid == pToken->pid)
-            return TRUE;
-    }
-
-    return FALSE;
 }
 
 void Parser::EnsureStackAvailable()
@@ -3581,39 +3552,23 @@ ParseNodePtr Parser::ParsePostfixOperators(
 /***************************************************************************
 Look for an existing label with the given name.
 ***************************************************************************/
-ParseNodePtr Parser::PnodeLabel(IdentPtr pid, ParseNodePtr pnodeLabels)
+bool Parser::LabelExists(IdentPtr pid, LabelId* pLabelIdList)
 {
-    AssertMem(pid);
-    AssertNodeMemN(pnodeLabels);
+    StmtNest dummy;
+    dummy.pLabelId = pLabelIdList;
+    dummy.pstmtOuter = m_pstmtCur;
 
-    StmtNest *pstmt;
-    ParseNodePtr pnodeT;
-
-    // Look in the statement stack.
-    for (pstmt = m_pstmtCur; nullptr != pstmt; pstmt = pstmt->pstmtOuter)
+    // Look through each label list for the current stack of statements
+    for (StmtNest* pStmt = &dummy; pStmt != nullptr; pStmt = pStmt->pstmtOuter)
     {
-        AssertNodeMem(pstmt->pnodeStmt);
-        AssertNodeMemN(pstmt->pnodeLab);
-
-        for (pnodeT = pstmt->pnodeLab; nullptr != pnodeT;
-            pnodeT = pnodeT->sxLabel.pnodeNext)
+        for (LabelId* pLabelId = pStmt->pLabelId; pLabelId != nullptr; pLabelId = pLabelId->next)
         {
-            Assert(knopLabel == pnodeT->nop);
-            if (pid == pnodeT->sxLabel.pid)
-                return pnodeT;
+            if (pLabelId->pid == pid)
+                return true;
         }
     }
 
-    // Also look in the pnodeLabels list.
-    for (pnodeT = pnodeLabels; nullptr != pnodeT;
-        pnodeT = pnodeT->sxLabel.pnodeNext)
-    {
-        Assert(knopLabel == pnodeT->nop);
-        if (pid == pnodeT->sxLabel.pid)
-            return pnodeT;
-    }
-
-    return nullptr;
+    return false;
 }
 
 // Currently only ints and floats are treated as constants in function call
@@ -8857,7 +8812,7 @@ ParseNodePtr Parser::ParseTryCatchFinally()
             pnodeT->sxStmt.pnodeOuter = pnodeTC;
             pnodeTC->sxTryCatch.pnodeTry = pnodeT;
         }
-        PushStmt<buildAST>(&stmt, pnodeTC, knopTryCatch, nullptr, nullptr);
+        PushStmt<buildAST>(&stmt, pnodeTC, knopTryCatch, nullptr);
 
         ParseNodePtr pnodeCatch = ParseCatch<buildAST>();
         if (buildAST)
@@ -8881,7 +8836,7 @@ ParseNodePtr Parser::ParseTryCatchFinally()
     {
         pnodeTF = CreateNode(knopTryFinally);
     }
-    PushStmt<buildAST>(&stmt, pnodeTF, knopTryFinally, nullptr, nullptr);
+    PushStmt<buildAST>(&stmt, pnodeTF, knopTryFinally, nullptr);
     ParseNodePtr pnodeFinally = ParseFinally<buildAST>();
     if (buildAST)
     {
@@ -8920,7 +8875,7 @@ ParseNodePtr Parser::ParseTry()
         Error(ERRnoLcurly);
     }
 
-    PushStmt<buildAST>(&stmt, pnode, knopTry, nullptr, nullptr);
+    PushStmt<buildAST>(&stmt, pnode, knopTry, nullptr);
     ParseNodePtr pnodeBody = ParseStatement<buildAST>();
     if (buildAST)
     {
@@ -8948,7 +8903,7 @@ ParseNodePtr Parser::ParseFinally()
         Error(ERRnoLcurly);
     }
 
-    PushStmt<buildAST>(&stmt, pnode, knopFinally, nullptr, nullptr);
+    PushStmt<buildAST>(&stmt, pnode, knopFinally, nullptr);
     ParseNodePtr pnodeBody = ParseStatement<buildAST>();
     if (buildAST)
     {
@@ -8998,7 +8953,7 @@ ParseNodePtr Parser::ParseCatch()
         if (buildAST)
         {
             pnode = CreateNodeWithScanner<knopCatch>(ichMin);
-            PushStmt<buildAST>(&stmt, pnode, knopCatch, nullptr, nullptr);
+            PushStmt<buildAST>(&stmt, pnode, knopCatch, nullptr);
             *ppnode = pnode;
             ppnode = &pnode->sxCatch.pnodeNext;
             *ppnode = nullptr;
@@ -9165,7 +9120,6 @@ ParseNodePtr Parser::ParseStatement()
     BOOL fCanAssign;
     IdentPtr pid;
     uint fnop;
-    ParseNodePtr pnodeLabel = nullptr;
     bool expressionStmt = false;
     bool isAsyncMethod = false;
     tokens tok;
@@ -9198,15 +9152,15 @@ ParseNodePtr Parser::ParseStatement()
 
             // create and push the try-catch node
             pParentTryCatchBlock = CreateBlockNode();
-            PushStmt<buildAST>(&stmtTryCatchBlock, pParentTryCatchBlock, knopBlock, nullptr, nullptr);
+            PushStmt<buildAST>(&stmtTryCatchBlock, pParentTryCatchBlock, knopBlock, nullptr);
             pParentTryCatch = CreateNodeWithScanner<knopTryCatch>();
-            PushStmt<buildAST>(&stmtTryCatch, pParentTryCatch, knopTryCatch, nullptr, nullptr);
+            PushStmt<buildAST>(&stmtTryCatch, pParentTryCatch, knopTryCatch, nullptr);
 
             // create and push a try node
             pTry = CreateNodeWithScanner<knopTry>();
-            PushStmt<buildAST>(&stmtTry, pTry, knopTry, nullptr, nullptr);
+            PushStmt<buildAST>(&stmtTry, pTry, knopTry, nullptr);
             pTryBlock = CreateBlockNode();
-            PushStmt<buildAST>(&stmtTryBlock, pTryBlock, knopBlock, nullptr, nullptr);
+            PushStmt<buildAST>(&stmtTryBlock, pTryBlock, knopBlock, nullptr);
             // these nodes will be closed after the statement is parsed.
         }
 #endif // EXCEPTION_RECOVERY
@@ -9478,7 +9432,7 @@ LDefaultTokenFor:
                 
                 TrackAssignment<true>(pnodeT, nullptr);
             }
-            PushStmt<buildAST>(&stmt, pnode, isForOf ? knopForOf : knopForIn, pnodeLabel, pLabelIdList);
+            PushStmt<buildAST>(&stmt, pnode, isForOf ? knopForOf : knopForIn, pLabelIdList);
             ParseNodePtr pnodeBody = ParseStatement<buildAST>();
 
             if (buildAST)
@@ -9532,7 +9486,7 @@ LDefaultTokenFor:
                 pnode->sxFor.pnodeIncr = pnodeIncr;
                 pnode->ichLim = ichLim;
             }
-            PushStmt<buildAST>(&stmt, pnode, knopFor, pnodeLabel, pLabelIdList);
+            PushStmt<buildAST>(&stmt, pnode, knopFor, pLabelIdList);
             ParseNodePtr pnodeBody = ParseStatement<buildAST>();
             if (buildAST)
             {
@@ -9570,8 +9524,8 @@ LDefaultTokenFor:
         {
             pnode = CreateNodeWithScanner<knopSwitch>(ichMin);
         }
-        PushStmt<buildAST>(&stmt, pnode, knopSwitch, pnodeLabel, pLabelIdList);
-        pnodeBlock = StartParseBlock<buildAST>(PnodeBlockType::Regular, ScopeType_Block, nullptr, pLabelIdList);
+        PushStmt<buildAST>(&stmt, pnode, knopSwitch, pLabelIdList);
+        pnodeBlock = StartParseBlock<buildAST>(PnodeBlockType::Regular, ScopeType_Block);
 
         if (buildAST)
         {
@@ -9667,7 +9621,7 @@ LEndSwitch:
             pnode->sxWhile.pnodeCond = pnodeCond;
             pnode->ichLim = ichLim;
         }
-        PushStmt<buildAST>(&stmt, pnode, knopWhile, pnodeLabel, pLabelIdList);
+        PushStmt<buildAST>(&stmt, pnode, knopWhile, pLabelIdList);
         ParseNodePtr pnodeBody = ParseStatement<buildAST>();
         PopStmt(&stmt);
 
@@ -9684,7 +9638,7 @@ LEndSwitch:
         {
             pnode = CreateNodeWithScanner<knopDoWhile>();
         }
-        PushStmt<buildAST>(&stmt, pnode, knopDoWhile, pnodeLabel, pLabelIdList);
+        PushStmt<buildAST>(&stmt, pnode, knopDoWhile, pLabelIdList);
         m_pscan->Scan();
         ParseNodePtr pnodeBody = ParseStatement<buildAST>();
         PopStmt(&stmt);
@@ -9738,7 +9692,7 @@ LEndSwitch:
         }
         ChkCurTok(tkRParen, ERRnoRparen);
 
-        PushStmt<buildAST>(&stmt, pnode, knopIf, pnodeLabel, pLabelIdList);
+        PushStmt<buildAST>(&stmt, pnode, knopIf, pLabelIdList);
         ParseNodePtr pnodeTrue = ParseStatement<buildAST>();
         ParseNodePtr pnodeFalse = nullptr;
         if (m_token.tk == tkELSE)
@@ -9762,7 +9716,7 @@ LEndSwitch:
             pnode = CreateBlockNode();
             pnode->grfpn |= PNodeFlags::fpnSyntheticNode; // block is not a user specifier block
         }
-        PushStmt<buildAST>(&stmt, pnode, knopBlock, pnodeLabel, pLabelIdList);
+        PushStmt<buildAST>(&stmt, pnode, knopBlock, pLabelIdList);
         ParseNodePtr pnodeStmt = ParseTryCatchFinally<buildAST>();
         if (buildAST)
         {
@@ -9797,7 +9751,7 @@ LEndSwitch:
         {
             pnode = CreateNodeWithScanner<knopWith>(ichMin);
         }
-        PushStmt<buildAST>(&stmt, pnode, knopWith, pnodeLabel, pLabelIdList);
+        PushStmt<buildAST>(&stmt, pnode, knopWith, pLabelIdList);
 
         ParseNodePtr *ppnodeExprScopeSave = nullptr;
         if (buildAST)
@@ -9859,7 +9813,7 @@ LEndSwitch:
     }
 
     case tkLCurly:
-        pnode = ParseBlock<buildAST>(pnodeLabel, pLabelIdList);
+        pnode = ParseBlock<buildAST>(pLabelIdList);
         break;
 
     case tkSColon:
@@ -9888,24 +9842,19 @@ LGetJumpStatement:
         {
             // Labeled break or continue.
             pid = m_token.GetIdentifier(m_phtbl);
-            AssertMem(pid);
             if (buildAST)
             {
                 pnode->sxJump.hasExplicitTarget=true;
                 pnode->ichLim = m_pscan->IchLimTok();
 
                 m_pscan->Scan();
-                PushStmt<buildAST>(&stmt, pnode, pnode->nop, pnodeLabel, nullptr);
+                PushStmt<buildAST>(&stmt, pnode, pnode->nop, pLabelIdList);
                 Assert(pnode->sxStmt.grfnop == 0);
                 for (pstmt = m_pstmtCur; nullptr != pstmt; pstmt = pstmt->pstmtOuter)
                 {
-                    AssertNodeMem(pstmt->pnodeStmt);
-                    AssertNodeMemN(pstmt->pnodeLab);
-                    for (pnodeT = pstmt->pnodeLab; nullptr != pnodeT;
-                         pnodeT = pnodeT->sxLabel.pnodeNext)
+                    for (LabelId* label = pstmt->pLabelId; label != nullptr; label = label->next)
                     {
-                        Assert(knopLabel == pnodeT->nop);
-                        if (pid == pnodeT->sxLabel.pid)
+                        if (pid == label->pid)
                         {
                             // Found the label. Make sure we can use it. We can
                             // break out of any statement, but we can only
@@ -9964,7 +9913,7 @@ LGetJumpStatement:
                 if (buildAST)
                 {
                     pnode->sxJump.hasExplicitTarget=false;
-                    PushStmt<buildAST>(&stmt, pnode, pnode->nop, pnodeLabel, nullptr);
+                    PushStmt<buildAST>(&stmt, pnode, pnode->nop, pLabelIdList);
                     Assert(pnode->sxStmt.grfnop == 0);
                 }
 
@@ -10030,12 +9979,10 @@ LGetJumpStatement:
                 pnode->ichLim = pnode->sxReturn.pnodeExpr->ichLim;
             }
             // See if return should call finally
-            PushStmt<buildAST>(&stmt, pnode, knopReturn, pnodeLabel, nullptr);
+            PushStmt<buildAST>(&stmt, pnode, knopReturn, pLabelIdList);
             Assert(pnode->sxStmt.grfnop == 0);
             for (pstmt = m_pstmtCur; nullptr != pstmt; pstmt = pstmt->pstmtOuter)
             {
-                AssertNodeMem(pstmt->pnodeStmt);
-                AssertNodeMemN(pstmt->pnodeLab);
                 if (pstmt->pnodeStmt->Grfnop() & fnopCleanup)
                 {
                     pnode->sxStmt.grfnop |= fnopCleanup;
@@ -10130,11 +10077,7 @@ LDefaultToken:
 
             if (m_token.tk == tkID)
             {
-                IdentToken tokInner;
-                tokInner.tk = tkID;
-                tokInner.ichMin = m_pscan->IchMinTok();
-                tokInner.ichLim = m_pscan->IchLimTok();
-                tokInner.pid = m_token.GetIdentifier(m_phtbl);
+                IdentPtr pidInner = m_token.GetIdentifier(m_phtbl);
 
                 m_pscan->Scan();
 
@@ -10147,30 +10090,13 @@ LDefaultToken:
                 if (parenCount == 0 && m_token.tk == tkColon)
                 {
                     // We have a label.
-                    // TODO[ianhall]: Refactor to eliminate separate code paths for buildAST and !buildAST
-                    if (buildAST)
+                    if (LabelExists(pidInner, pLabelIdList))
                     {
-                        // See if the label is already defined.
-                        if (nullptr != PnodeLabel(tokInner.pid, pnodeLabel))
-                        {
-                            Error(ERRbadLabel);
-                        }
-                        pnodeT = CreateNodeWithScanner<knopLabel>();
-                        pnodeT->sxLabel.pid = tokInner.pid;
-                        pnodeT->sxLabel.pnodeNext = pnodeLabel;
-                        pnodeLabel = pnodeT;
+                        Error(ERRbadLabel);
                     }
-                    else
-                    {
-                        // See if the label is already defined.
-                        if (PnodeLabelNoAST(&tokInner, pLabelIdList))
-                        {
-                            Error(ERRbadLabel);
-                        }
-                        LabelId* pLabelId = CreateLabelId(&tokInner);
-                        pLabelId->next = pLabelIdList;
-                        pLabelIdList = pLabelId;
-                    }
+                    LabelId* pLabelId = CreateLabelId(pidInner);
+                    pLabelId->next = pLabelIdList;
+                    pLabelIdList = pLabelId;
                     m_pscan->Scan();
                     goto LRestart;
                 }
@@ -10264,7 +10190,7 @@ LNeedTerminator:
             StmtNest stmtCatch;
             ParseNodePtr pCatch;
             pCatch = CreateNodeWithScanner<knopCatch>();
-            PushStmt<buildAST>(&stmtCatch, pCatch, knopCatch, nullptr, nullptr);
+            PushStmt<buildAST>(&stmtCatch, pCatch, knopCatch, nullptr);
             pCatch->sxCatch.pnodeBody = nullptr;
             if(pnode != nullptr)
             {
@@ -11796,10 +11722,6 @@ ParseNode* Parser::CopyPnode(ParseNode *pnode) {
   case knopContinue:
     Assert(false);
     break;
-      //PTNODE(knopLabel      , "label"        ,None    ,Label,fnopNone)
-  case knopLabel:
-    Assert(false);
-    break;
       //PTNODE(knopSwitch     , "switch"    ,None    ,Switch,fnopBreak)
   case knopSwitch:
     Assert(false);
@@ -13230,12 +13152,6 @@ void PrintPnodeWIndent(ParseNode *pnode,int indentAmt) {
       Indent(indentAmt);
       Output::Print(_u("continue\n"));
       // TODO: some representation of target
-      break;
-      //PTNODE(knopLabel      , "label"        ,None    ,Label,fnopNone)
-  case knopLabel:
-      Indent(indentAmt);
-      Output::Print(_u("label %s"),pnode->sxLabel.pid->Psz());
-      // TODO: print labeled statement
       break;
       //PTNODE(knopSwitch     , "switch"    ,None    ,Switch,fnopBreak)
   case knopSwitch:

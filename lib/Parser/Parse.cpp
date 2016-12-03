@@ -3731,13 +3731,6 @@ ParseNodePtr Parser::ParseArrayList(bool *pArrayOfTaggedInts, bool *pArrayOfInts
             }
         }
 
-#if DEBUG
-        if(m_grfscr & fscrEnforceJSON && !IsJSONValid(pnodeArg))
-        {
-            Error(ERRsyntax);
-        }
-#endif
-
         if (buildAST)
         {
             if (arrayOfNumbers)
@@ -3977,12 +3970,6 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, uint32* pNameHintLengt
     for (;;)
     {
         bool isComputedName = false;
-#if DEBUG
-        if((m_grfscr & fscrEnforceJSON) && (tkStrCon != m_token.tk || !(m_pscan->IsDoubleQuoteOnLastTkStrCon())))
-        {
-            Error(ERRsyntax);
-        }
-#endif
         bool isAsyncMethod = false;
         charcount_t ichMin = 0;
         size_t iecpMin = 0;
@@ -4157,12 +4144,7 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, uint32* pNameHintLengt
             {
                 pnodeExpr = ParseExpr<buildAST>(koplCma, nullptr, TRUE, FALSE, pFullNameHint, &fullNameHintLength, &shortNameOffset);
             }
-#if DEBUG
-            if((m_grfscr & fscrEnforceJSON) && !IsJSONValid(pnodeExpr))
-            {
-                Error(ERRsyntax);
-            }
-#endif
+
             if (buildAST)
             {
                 pnodeArg = CreateBinNode(isObjectPattern ? knopObjectPatternMember : knopMember, pnodeName, pnodeExpr);
@@ -10859,13 +10841,6 @@ ParseNodePtr Parser::Parse(LPCUTF8 pszSrc, size_t offset, size_t length, charcou
     {
         pnodeProg->sxFnc.SetStrictMode();
     }
-
-#if DEBUG
-    if(m_grfscr & fscrEnforceJSON && !IsJSONValid(pnodeProg->sxFnc.pnodeBody))
-    {
-        Error(ERRsyntax);
-    }
-#endif
 
     if (tkEOF != m_token.tk)
         Error(ERRsyntax);

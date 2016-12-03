@@ -824,21 +824,6 @@ private:
 
     BOOL NodeIsIdent(ParseNodePtr pnode, IdentPtr pid);
     BOOL NodeIsEvalName(ParseNodePtr pnode);
-    BOOL IsJSONValid(ParseNodePtr pnodeExpr)
-    {
-        OpCode jnop = (knopNeg == pnodeExpr->nop) ? pnodeExpr->sxUni.pnode1->nop : pnodeExpr->nop;
-        if (knopNeg == pnodeExpr->nop)
-        {
-            return (knopInt == jnop ||  knopFlt == jnop);
-        }
-        else
-        {
-            return (knopInt == jnop ||  knopFlt == jnop ||
-                knopStr == jnop ||  knopNull == jnop ||
-                knopTrue == jnop || knopFalse == jnop ||
-                knopObject == jnop || knopArray == jnop);
-        }
-    }
 
     BOOL IsConstantInFunctionCall(ParseNodePtr pnode);
     BOOL IsConstantInArrayLiteral(ParseNodePtr pnode);

@@ -22,10 +22,7 @@ enum
                                        // - modifies the behavior of fscrHtmlComments
     fscrDoNotHandleTrailingHtmlComments = 1 << 8,
 
-#if DEBUG
-    fscrEnforceJSON = 1 << 9,  // used together with fscrReturnExpression
-                               // enforces JSON semantics in the parsing.
-#endif
+    // Unused = 1 << 9,
 
     fscrEval = 1 << 10,  // this expression has eval semantics (i.e., run in caller's context
     fscrEvalCode = 1 << 11,  // this is an eval expression

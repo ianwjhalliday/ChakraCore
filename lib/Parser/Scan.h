@@ -448,16 +448,6 @@ public:
         m_DeferredParseFlags = flags;
     }
 
-    // the functions IsDoubleQuoteOnLastTkStrCon() and IsHexOrOctOnLastTKNumber() works only with a scanner without lookahead
-    // Both functions are used to get more info on the last token for specific diffs necessary for JSON parsing.
-
-
-    //Single quotes are not legal in JSON strings. Make distinction between single quote string constant and single quote string
-    BOOL IsDoubleQuoteOnLastTkStrCon()
-    {
-        return m_doubleQuoteOnLastTkStrCon;
-    }
-
     // True if all chars of last string constant are ascii
     BOOL IsEscapeOnLastTkStrCon()
     {
@@ -680,7 +670,6 @@ private:
     uint16 m_fStringTemplateDepth;     // we should treat } as string template middle starting character (depth instead of flag)
     BOOL m_fHadEol;
     BOOL m_fIsModuleCode : 1;
-    BOOL m_doubleQuoteOnLastTkStrCon :1;
     bool m_OctOrLeadingZeroOnLastTKNumber :1;
     BOOL m_fSyntaxColor : 1;            // whether we're just syntax coloring
     bool m_EscapeOnLastTkStrCon:1;

@@ -80,7 +80,6 @@ Scanner<EncodingPolicy>::Scanner(Parser* parser, HashTbl *phtbl, Token *ptoken, 
     m_cMinLineMultiUnits = 0;
     m_fHadEol = FALSE;
 
-    m_doubleQuoteOnLastTkStrCon = FALSE;
     m_OctOrLeadingZeroOnLastTKNumber = false;
 
     m_fStringTemplateDepth = 0;
@@ -1466,7 +1465,6 @@ LBreak:
     }
 
     m_scanState = ScanStateNormal;
-    m_doubleQuoteOnLastTkStrCon = '"' == delim;
     *pp = p;
 
     return tkStrCon;

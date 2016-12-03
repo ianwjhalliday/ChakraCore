@@ -20,10 +20,7 @@ enum
                                     // This parser state includes the set of names which are captured by each function
                                     // and is stored in ParseNodeFnc::capturedNames.
 
-#if DEBUG
-    fscrEnforceJSON = 1 << 9,  // used together with fscrReturnExpression
-                               // enforces JSON semantics in the parsing.
-#endif
+    // Unused = 1 << 9,
 
     fscrEval = 1 << 10,  // this expression has eval semantics (i.e., run in caller's context
     fscrEvalCode = 1 << 11,  // this is an eval expression

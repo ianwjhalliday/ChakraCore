@@ -106,7 +106,6 @@ void Scanner<EncodingPolicy>::ClearStates()
 
     m_fHadEol = FALSE;
     m_fIsModuleCode = FALSE;
-    m_doubleQuoteOnLastTkStrCon = FALSE;
     m_OctOrLeadingZeroOnLastTKNumber = false;
     m_EscapeOnLastTkStrCon = false;
     m_fNextStringTemplateIsTagged = false;
@@ -1424,7 +1423,6 @@ LBreak:
     }
 
     m_scanState = ScanStateNormal;
-    m_doubleQuoteOnLastTkStrCon = '"' == delim;
     *pp = p;
 
     return tkStrCon;

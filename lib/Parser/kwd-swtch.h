@@ -3,7 +3,7 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 //-------------------------------------------------------------------------------------------------------
 // GENERATED FILE, DO NOT HAND-MODIFY!
-// Generated with the following command line: wscript jsscan.js kwd-lsc.h kwd-swtch.h
+// Generated with the following command line: wscript jsscan.js keywords.h kwd-swtch.h
 // This should be regenerated whenever the keywords change.
 
     case 'a':

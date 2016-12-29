@@ -81,7 +81,6 @@
     <ClInclude Include="Hash.h" />
     <ClInclude Include="idiom.h" />
     <ClInclude Include="keywords.h" />
-    <ClInclude Include="kwd-lsc.h" />
     <ClInclude Include="kwd-swtch.h" />
     <ClInclude Include="kwds_sw.h" />
     <ClInclude Include="objnames.h" />

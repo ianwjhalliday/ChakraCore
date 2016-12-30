@@ -16,7 +16,6 @@ enum
 {
     koplNo,     // not an operator
     koplCma,    // ,
-    koplSpr,    // ...
     koplAsg,    // = += etc
     koplQue,    // ?:
     koplLor,    // ||
@@ -414,11 +413,6 @@ private:
     uint m_parsingSuperRestrictionState;
     friend class AutoParsingSuperRestrictionStateRestorer;
 
-    // Used for issuing spread and rest errors when there is ambiguity with parameter list and parenthesized expressions
-    uint m_parenDepth;
-    bool m_deferEllipsisError;
-    RestorePoint m_EllipsisErrLoc;
-
     uint m_tryCatchOrFinallyDepth;  // Used to determine if parsing is currently in a try/catch/finally block in order to throw error on yield expressions inside them
 
     StmtNest *m_pstmtCur; // current statement or NULL
@@ -769,21 +763,20 @@ private:
         int oplMin = koplNo,
         BOOL *pfCanAssign = nullptr,
         BOOL fAllowIn = TRUE,
-        BOOL fAllowEllipsis = FALSE,
         _Out_opt_ IdentPtr* ppidTermId = nullptr);
 
     template<bool buildAST> ParseNodePtr ParseExpr(
         int oplMin = koplNo,
         BOOL *pfCanAssign = nullptr,
         BOOL fAllowIn = TRUE,
-        BOOL fAllowEllipsis = FALSE,
         LPCOLESTR pHint = nullptr,
         uint32 *pHintLength = nullptr,
         uint32 *pShortNameOffset = nullptr,
         _Out_opt_ IdentPtr* ppidTermId = nullptr,
         bool fUnaryOrParen = false,
         _Inout_opt_ bool* pfLikelyPattern = nullptr,
-        _Inout_opt_ charcount_t *plastRParen = nullptr);
+        _Inout_opt_ charcount_t *plastRParen = nullptr,
+        _Out_opt_ RestorePoint* ellipsisLocation = nullptr);
 
     template<bool buildAST> ParseNodePtr ParseTerm(
         BOOL fAllowCall = TRUE,
@@ -795,7 +788,8 @@ private:
         _Out_opt_ BOOL* pfCanAssign = nullptr,
         _Inout_opt_ BOOL* pfLikelyPattern = nullptr,
         _Out_opt_ bool* pfIsDotOrIndex = nullptr,
-        _Inout_opt_ charcount_t *plastRParen = nullptr);
+        _Inout_opt_ charcount_t *plastRParen = nullptr,
+        _Out_opt_ RestorePoint* ellipsisLocation = nullptr);
 
     template<bool buildAST> ParseNodePtr ParsePostfixOperators(
         ParseNodePtr pnode,
@@ -912,7 +906,6 @@ public:
     }
 
 private:
-    void DeferOrEmitPotentialSpreadError(ParseNodePtr pnodeT);
     void TrackAssignment(IdentPtr pidTermId);
     PidRefStack* PushPidRef(IdentPtr pid);
     PidRefStack* FindOrAddPidRef(IdentPtr pid, int blockId, Js::LocalFunctionId funcId);

@@ -70,7 +70,7 @@ LSC_ERROR_MSG( 1063, ERRInvalidCodePoint      , "Invalid codepoint value in the 
 LSC_ERROR_MSG( 1064, ERRMissingCurlyBrace      , "Closing curly brace ('}') expected.")
 LSC_ERROR_MSG( 1065, ERRRestLastArg, "The rest parameter must be the last parameter in a formals list.")
 LSC_ERROR_MSG( 1066, ERRRestWithDefault, "The rest parameter cannot have a default initializer.")
-LSC_ERROR_MSG( 1067, ERRUnexpectedEllipsis, "Unexpected ... operator")
+//LSC_ERROR_MSG( 1067, ERRUnexpectedEllipsis, "Unexpected ... operator")
 
 LSC_ERROR_MSG( 1068, ERRDestructInit, "Destructuring declarations must have an initializer")
 LSC_ERROR_MSG( 1069, ERRDestructRestLast, "Destructuring rest variables must be in the last position of the expression")

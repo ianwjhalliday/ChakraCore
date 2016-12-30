@@ -46,9 +46,9 @@ var tests = [
   {
     name: "Destructuring bug fix - rest operator in for loop",
     body: function () {
-      assert.throws(function () { eval("for (var {a: ...a1} = {}; ; ) { } "); }, SyntaxError, "Native for loop - usage of '...' in object destructuring pattern in not valid", "Unexpected ... operator");
-      assert.throws(function () { eval("for (var {a: ...[]} = {}; ; ) { } "); }, SyntaxError, "Native for loop - usage of '...' before an array in object destructuring pattern in not valid", "Unexpected ... operator");
-      assert.throws(function () { eval("for (var {a: ...[]} of '' ) { } "); }, SyntaxError, "for.of loop - usage of '...' before an array in object destructuring pattern in not valid", "Unexpected ... operator");
+      assert.throws(function () { eval("for (var {a: ...a1} = {}; ; ) { } "); }, SyntaxError, "Native for loop - usage of '...' in object destructuring pattern in not valid", "Syntax error");
+      assert.throws(function () { eval("for (var {a: ...[]} = {}; ; ) { } "); }, SyntaxError, "Native for loop - usage of '...' before an array in object destructuring pattern in not valid", "Syntax error");
+      assert.throws(function () { eval("for (var {a: ...[]} of '' ) { } "); }, SyntaxError, "for.of loop - usage of '...' before an array in object destructuring pattern in not valid", "Syntax error");
     }
   },
   {

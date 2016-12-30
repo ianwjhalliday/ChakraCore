@@ -353,6 +353,8 @@ struct RestorePoint
 #endif
     {
     };
+
+    bool IsValid() { return m_ichMinTok != (charcount_t)-1; }
 };
 
 template <typename EncodingPolicy>

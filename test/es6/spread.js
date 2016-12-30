@@ -408,9 +408,9 @@ var tests = [
     name: "OS 2970825: Spread should not be allowed with unary operators",
     body: function () {
       function foo() {}
-      assert.throws(function () { eval("foo(++...[1,2,3]);"); },      SyntaxError, "Spread with unary operator throws a syntax error",          "Unexpected ... operator");
-      assert.throws(function () { eval("foo(typeof ...[1,2,3]);"); }, SyntaxError, "Spread with keyword unary operator throws a syntax error",  "Unexpected ... operator");
-      assert.throws(function () { eval("foo(!!...[1,2,3]);"); },      SyntaxError, "Spread with chained unary operators throws a syntax error", "Unexpected ... operator");
+      assert.throws(function () { eval("foo(++...[1,2,3]);"); },      SyntaxError, "Spread with unary operator throws a syntax error",          "Syntax error");
+      assert.throws(function () { eval("foo(typeof ...[1,2,3]);"); }, SyntaxError, "Spread with keyword unary operator throws a syntax error",  "Syntax error");
+      assert.throws(function () { eval("foo(!!...[1,2,3]);"); },      SyntaxError, "Spread with chained unary operators throws a syntax error", "Syntax error");
     }
   }
 ];

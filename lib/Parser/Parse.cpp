@@ -82,7 +82,6 @@ Parser::Parser(Js::ScriptContext* scriptContext, BOOL strictMode, PageAllocator 
     m_pCurrentAstSize = nullptr;
     m_arrayDepth = 0;
     m_funcInArrayDepth = 0;
-    m_parenDepth = 0;
     m_funcInArray = 0;
     m_tryCatchOrFinallyDepth = 0;
     m_UsesArgumentsAtGlobal = false;
@@ -115,7 +114,6 @@ Parser::Parser(Js::ScriptContext* scriptContext, BOOL strictMode, PageAllocator 
 
     m_parseType = ParseType_Upfront;
 
-    m_deferEllipsisError = false;
     m_hasDeferredShorthandInitError = false;
     m_parsingSuperRestrictionState = ParsingSuperRestrictionState_SuperDisallowed;
 }
@@ -2740,7 +2738,8 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
     bool fUnaryOrParen /*= false*/,
     _Out_opt_ BOOL* pfCanAssign /*= nullptr*/,
     _Out_opt_ BOOL* pfLikelyPattern /*= nullptr*/,
-    _Out_opt_ bool* pfIsDotOrIndex /*= nullptr*/)
+    _Out_opt_ bool* pfIsDotOrIndex /*= nullptr*/,
+    _Out_opt_ RestorePoint* pEllipsisLocation /*= nullptr*/)
 {
     ParseNodePtr pnode = nullptr;
     charcount_t ichMin = 0;
@@ -2860,9 +2859,16 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
         uint saveCurrBlockId = GetCurrentBlock()->sxBlock.blockId;
         GetCurrentBlock()->sxBlock.blockId = m_nextBlockId++;
 
-        this->m_parenDepth++;
-        pnode = ParseExpr<buildAST>(koplNo, &fCanAssign, TRUE, FALSE, nullptr, nullptr /*nameLength*/, nullptr  /*pShortNameOffset*/, &pidTermId, true);
-        this->m_parenDepth--;
+        if (pEllipsisLocation != nullptr && m_token.tk == tkEllipsis)
+        {
+            // Request to allow ellipsis in case there is a lambda
+            m_pscan->Capture(pEllipsisLocation);
+            // Allow and ignore the ellipsis, our caller will emit an error
+            // for this if there is no => following this parenthetical expression.
+            m_pscan->Scan();
+        }
+
+        pnode = ParseExpr<buildAST>(koplNo, &fCanAssign, TRUE, nullptr, nullptr /*nameLength*/, nullptr  /*pShortNameOffset*/, &pidTermId, true, nullptr, pEllipsisLocation);
 
         ChkCurTok(tkRParen, ERRnoRparen);
 
@@ -2874,16 +2880,6 @@ ParseNodePtr Parser::ParseTerm(BOOL fAllowCall,
             m_nextBlockId = saveNextBlockId;
         }
 
-        // Emit a deferred ... error if one was parsed.
-        if (m_deferEllipsisError && m_token.tk != tkDArrow)
-        {
-            m_pscan->SeekTo(m_EllipsisErrLoc);
-            Error(ERRInvalidSpreadUse);
-        }
-        else
-        {
-            m_deferEllipsisError = false;
-        }
         break;
     }
 
@@ -3536,9 +3532,17 @@ ParseNodePtr Parser::ParseArgList( bool *pCallOfConstants, uint16 *pSpreadArgCou
         // the count of arguments has to fit in an unsigned short
         if (count > 0xffffU)
             Error(ERRnoMemory);
-        // Allow spread in argument lists.
+
+        charcount_t ichMinSpread = 0;
+        bool fSpreadArg = m_token.tk == tkEllipsis;
+        if (fSpreadArg)
+        {
+            ichMinSpread = m_pscan->IchMinTok();
+            m_pscan->Scan();
+        }
+
         IdentPtr pidTermId = nullptr;
-        pnodeArg = ParseExpr<buildAST>(koplCma, nullptr, TRUE, /* fAllowEllipsis */TRUE, NULL, nullptr, nullptr, &pidTermId);
+        pnodeArg = ParseExpr<buildAST>(koplCma, nullptr, TRUE, NULL, nullptr, nullptr, &pidTermId);
         ++count;
         this->MarkEscapingRef(pnodeArg, pidTermId);
 
@@ -3551,9 +3555,10 @@ ParseNodePtr Parser::ParseArgList( bool *pCallOfConstants, uint16 *pSpreadArgCou
                 *pCallOfConstants = false;
             }
 
-            if (pnodeArg->nop == knopEllipsis)
+            if (fSpreadArg)
             {
                 (*pSpreadArgCount)++;
+                pnodeArg = CreateUniNode(knopEllipsis, pnodeArg, ichMinSpread, pnodeArg->ichLim);
             }
 
             AddToNodeListEscapedUse(&pnodeList, &lastNodeRef, pnodeArg);
@@ -3668,15 +3673,25 @@ ParseNodePtr Parser::ParseArrayList(bool *pArrayOfTaggedInts, bool *pArrayOfInts
         }
         else
         {
-            // Allow Spread in array literals.
-            pnodeArg = ParseExpr<buildAST>(koplCma, nullptr, TRUE, /* fAllowEllipsis */ TRUE);
+            charcount_t ichMinSpread = 0;
+            bool fSpreadArg = m_token.tk == tkEllipsis;
+            if (fSpreadArg)
+            {
+                ichMinSpread = m_pscan->IchMinTok();
+                m_pscan->Scan();
+            }
+
+            pnodeArg = ParseExpr<buildAST>(koplCma, nullptr, TRUE);
+
             if (buildAST)
             {
-                if (pnodeArg->nop == knopEllipsis)
+                this->CheckArguments(pnodeArg);
+
+                if (fSpreadArg)
                 {
+                    pnodeArg = CreateUniNode(knopEllipsis, pnodeArg, ichMinSpread, pnodeArg->ichLim);
                     (*spreadCount)++;
                 }
-                this->CheckArguments(pnodeArg);
             }
         }
 
@@ -3758,7 +3773,7 @@ ParseNodePtr Parser::ParseArrayList(bool *pArrayOfTaggedInts, bool *pArrayOfInts
 template<bool buildAST> void Parser::ParseComputedName(ParseNodePtr* ppnodeName, LPCOLESTR* ppNameHint, LPCOLESTR* ppFullNameHint, uint32 *pNameLength, uint32 *pShortNameOffset)
 {
     m_pscan->Scan();
-    ParseNodePtr pnodeNameExpr = ParseExpr<buildAST>(koplCma, nullptr, TRUE, FALSE, *ppNameHint, pNameLength, pShortNameOffset);
+    ParseNodePtr pnodeNameExpr = ParseExpr<buildAST>(koplCma, nullptr, TRUE, *ppNameHint, pNameLength, pShortNameOffset);
     if (buildAST)
     {
         *ppnodeName = CreateNodeT<knopComputedName>(pnodeNameExpr->ichMin, pnodeNameExpr->ichLim);
@@ -4073,7 +4088,7 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, uint32* pNameHintLengt
             {
                 if (m_token.tk == tkEllipsis)
                 {
-                    Error(ERRUnexpectedEllipsis);
+                    Error(ERRsyntax);
                 }
                 pnodeExpr = ParseDestructuredVarDecl<buildAST>(declarationType, declarationType != tkLCurly, nullptr/* *hasSeenRest*/, false /*topLevel*/, false /*allowEmptyExpression*/);
 
@@ -4088,7 +4103,7 @@ ParseNodePtr Parser::ParseMemberList(LPCOLESTR pNameHint, uint32* pNameHintLengt
             }
             else
             {
-                pnodeExpr = ParseExpr<buildAST>(koplCma, nullptr, TRUE, FALSE, pFullNameHint, &fullNameHintLength, &shortNameOffset);
+                pnodeExpr = ParseExpr<buildAST>(koplCma, nullptr, TRUE, pFullNameHint, &fullNameHintLength, &shortNameOffset);
             }
 
             if (buildAST)
@@ -6058,7 +6073,7 @@ void Parser::ParseFncFormals(ParseNodePtr pnodeFnc, ParseNodePtr pnodeParentFnc,
                     if (flags & fFncOneArg)
                     {
                         // The parameter of a setter cannot be a rest parameter.
-                        Error(ERRUnexpectedEllipsis);
+                        Error(ERRsyntax);
                     }
                     pnodeT = CreateDeclNode(knopVarDecl, pid, STFormal, false);
                     pnodeT->sxVar.sym->SetIsNonSimpleParameter(true);
@@ -6122,7 +6137,7 @@ void Parser::ParseFncFormals(ParseNodePtr pnodeFnc, ParseNodePtr pnodeParentFnc,
                     }
 
                     m_pscan->Scan();
-                    ParseNodePtr pnodeInit = ParseExpr<buildAST>(koplCma, nullptr, TRUE, FALSE, pNameHint, &nameHintLength, &nameHintOffset);
+                    ParseNodePtr pnodeInit = ParseExpr<buildAST>(koplCma, nullptr, TRUE, pNameHint, &nameHintLength, &nameHintOffset);
 
                     if (buildAST && pnodeInit->nop == knopFncDecl)
                     {
@@ -7697,50 +7712,13 @@ LPCOLESTR Parser::AppendNameHints(LPCOLESTR left, LPCOLESTR right, uint32 *pName
     return AppendNameHints(left, leftLen, right, rightLen, pNameLength, pShortNameOffset, ignoreAddDotWithSpace, wrapInBrackets);
 }
 
-/**
- * Emits a spread error if there is no ambiguity, or marks defers the error for
- * when we can determine if it is a rest error or a spread error.
- *
- * The ambiguity arises when we are parsing a lambda parameter list but we have
- * not seen the => token. At this point, we are either in a parenthesized
- * expression or a parameter list, and cannot issue an error until the matching
- * RParen has been scanned.
- *
- * The actual emission of the error happens in ParseExpr, when we first know if
- * the expression is a lambda parameter list or not.
- *
- */
-void Parser::DeferOrEmitPotentialSpreadError(ParseNodePtr pnodeT)
-{
-    if (m_parenDepth > 0)
-    {
-        if (m_token.tk == tkRParen)
-        {
-           if (!m_deferEllipsisError)
-            {
-                // Capture only the first error instance.
-                m_pscan->Capture(&m_EllipsisErrLoc);
-                m_deferEllipsisError = true;
-            }
-        }
-        else
-        {
-            Error(ERRUnexpectedEllipsis);
-        }
-    }
-    else
-    {
-        Error(ERRInvalidSpreadUse);
-    }
-}
-
 /***************************************************************************
 Parse an optional sub expression returning null if there was no expression.
 Checks for no expression by looking for a token that can follow an
 Expression grammar production.
 ***************************************************************************/
 template<bool buildAST>
-bool Parser::ParseOptionalExpr(ParseNodePtr* pnode, bool fUnaryOrParen, int oplMin, BOOL *pfCanAssign, BOOL fAllowIn, BOOL fAllowEllipsis, _Out_opt_ IdentPtr* ppidTermId)
+bool Parser::ParseOptionalExpr(ParseNodePtr* pnode, bool fUnaryOrParen, int oplMin, BOOL *pfCanAssign, BOOL fAllowIn, _Out_opt_ IdentPtr* ppidTermId)
 {
     *pnode = nullptr;
     if (m_token.tk == tkRCurly ||
@@ -7756,7 +7734,7 @@ bool Parser::ParseOptionalExpr(ParseNodePtr* pnode, bool fUnaryOrParen, int oplM
     }
 
     IdentPtr pidTermId = nullptr;
-    ParseNodePtr pnodeT = ParseExpr<buildAST>(oplMin, pfCanAssign, fAllowIn, fAllowEllipsis, nullptr /*pNameHint*/, nullptr /*pHintLength*/, nullptr /*pShortNameOffset*/, &pidTermId, fUnaryOrParen);
+    ParseNodePtr pnodeT = ParseExpr<buildAST>(oplMin, pfCanAssign, fAllowIn, nullptr /*pNameHint*/, nullptr /*pHintLength*/, nullptr /*pShortNameOffset*/, &pidTermId, fUnaryOrParen);
     // Detect nested function escapes of the pattern "return function(){...}" or "yield function(){...}".
     // Doing so in the parser allows us to disable stack-nested-functions in common cases where an escape
     // is not detected at byte code gen time because of deferred parsing.
@@ -7778,13 +7756,13 @@ template<bool buildAST>
 ParseNodePtr Parser::ParseExpr(int oplMin,
     BOOL *pfCanAssign,
     BOOL fAllowIn,
-    BOOL fAllowEllipsis,
     LPCOLESTR pNameHint,
     uint32 *pHintLength,
     uint32 *pShortNameOffset,
     _Out_opt_ IdentPtr* ppidTermId,
     bool fUnaryOrParen,
-    _Out_opt_ bool* pfLikelyPattern)
+    _Out_opt_ bool* pfLikelyPattern,
+    _Out_opt_ RestorePoint* pEllipsisLocation)
 {
     int opl;
     OpCode nop;
@@ -7867,11 +7845,6 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
 
         m_pscan->Scan();
 
-        if (m_token.tk == tkEllipsis) {
-            // ... cannot have a unary prefix.
-            Error(ERRUnexpectedEllipsis);
-        }
-
         if (nop == knopYield && !m_pscan->FHadNewLine() && m_token.tk == tkStar)
         {
             m_pscan->Scan();
@@ -7880,7 +7853,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
 
         if (nop == knopYield)
         {
-            if (!ParseOptionalExpr<buildAST>(&pnodeT, false, opl, NULL, TRUE, fAllowEllipsis))
+            if (!ParseOptionalExpr<buildAST>(&pnodeT, false, opl, NULL, TRUE))
             {
                 nop = knopYieldLeaf;
                 if (buildAST)
@@ -7892,7 +7865,7 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
         else
         {
             // Disallow spread after a unary operator.
-            pnodeT = ParseExpr<buildAST>(opl, &fCanAssign, TRUE, FALSE, nullptr /*hint*/, nullptr /*hintLength*/, nullptr /*hintOffset*/, &pidOperandTermId, true);
+            pnodeT = ParseExpr<buildAST>(opl, &fCanAssign, TRUE, nullptr /*hint*/, nullptr /*hintLength*/, nullptr /*hintOffset*/, &pidOperandTermId, true);
         }
 
         if (nop != knopYieldLeaf)
@@ -7905,13 +7878,6 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
                 }
                 TrackAssignment(pidOperandTermId);
                 CheckStrictModeEvalArgumentsUsage(pidOperandTermId);
-            }
-            else if (nop == knopEllipsis)
-            {
-                if (!fAllowEllipsis)
-                {
-                    DeferOrEmitPotentialSpreadError(pnodeT);
-                }
             }
             else if (m_token.tk == tkExpo)
             {
@@ -7982,7 +7948,8 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
     {
         ichMin = m_pscan->IchMinTok();
         BOOL fLikelyPattern = FALSE;
-        pnode = ParseTerm<buildAST>(TRUE, pNameHint, &hintLength, &hintOffset, &pidTermId, fUnaryOrParen, &fCanAssign, IsES6DestructuringEnabled() ? &fLikelyPattern : nullptr, &fIsDotOrIndex);
+        RestorePoint ellipsisLocation;
+        pnode = ParseTerm<buildAST>(TRUE, pNameHint, &hintLength, &hintOffset, &pidTermId, fUnaryOrParen, &fCanAssign, IsES6DestructuringEnabled() ? &fLikelyPattern : nullptr, &fIsDotOrIndex, &ellipsisLocation);
         if (pfLikelyPattern != nullptr)
         {
             *pfLikelyPattern = !!fLikelyPattern;
@@ -7991,6 +7958,13 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
         if (m_token.tk == tkDArrow)
         {
             m_hasDeferredShorthandInitError = false;
+        }
+        else if (ellipsisLocation.IsValid())
+        {
+            // If we had an ellipsis and there is no arrow then we had an error.
+            // Report it now that we know there is no arrow.
+            m_pscan->SeekTo(ellipsisLocation);
+            Error(ERRInvalidSpreadUse);
         }
 
         if (m_token.tk == tkAsg && oplMin <= koplAsg && fLikelyPattern)
@@ -8183,9 +8157,23 @@ ParseNodePtr Parser::ParseExpr(int oplMin,
         }
         else
         {
+            if (pEllipsisLocation != nullptr && nop == knopComma &&
+                m_token.tk == tkEllipsis)
+            {
+                if (!pEllipsisLocation->IsValid())
+                {
+                    // Record ellipsis for potential error later if no => is seen after returning from ParseTerm
+                    // (but don't overwrite the first ellipsis location so that we error on the first and not the
+                    // last)
+                    m_pscan->Capture(pEllipsisLocation);
+                }
+                // Allow and ignore the ellipsis for now
+                m_pscan->Scan();
+            }
+
             // Parse the operand, make a new node, and look for more
             IdentPtr pidOperandTermId = nullptr;
-            pnodeT = ParseExpr<buildAST>(opl, NULL, fAllowIn, FALSE, pNameHint, &hintLength, &hintOffset, &pidOperandTermId);
+            pnodeT = ParseExpr<buildAST>(opl, NULL, fAllowIn, pNameHint, &hintLength, &hintOffset, &pidOperandTermId);
 
             // Detect nested function escapes of the pattern "o.f = function(){...}" or "o[s] = function(){...}".
             // Doing so in the parser allows us to disable stack-nested-functions in common cases where an escape
@@ -8532,7 +8520,7 @@ ParseNodePtr Parser::ParseVariableDeclaration(
                 }
 
                 m_pscan->Scan();
-                pnodeInit = ParseExpr<buildAST>(koplCma, nullptr, fAllowIn, FALSE, pNameHint, &nameHintLength, &nameHintOffset);
+                pnodeInit = ParseExpr<buildAST>(koplCma, nullptr, fAllowIn, pNameHint, &nameHintLength, &nameHintOffset);
                 if (buildAST)
                 {
                     AnalysisAssert(pnodeThis);
@@ -9147,7 +9135,6 @@ LDefaultTokenFor:
                     pnodeT = ParseExpr<buildAST>(koplNo,
                         &fCanAssign,
                         /*fAllowIn = */FALSE,
-                        /*fAllowEllipsis*/FALSE,
                         /*pHint*/nullptr,
                         /*pHintLength*/nullptr,
                         /*pShortNameOffset*/nullptr,

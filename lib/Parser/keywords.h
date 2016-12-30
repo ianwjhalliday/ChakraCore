@@ -169,7 +169,7 @@ TOK_DCL(tkTilde         , No, knopNone   ,Uni, knopNot    ) // ~
 TOK_DCL(tkBang          , No, knopNone   ,Uni, knopLogNot ) // !
 TOK_DCL(tkInc           , No, knopNone   ,Uni, knopIncPre ) // ++
 TOK_DCL(tkDec           , No, knopNone   ,Uni, knopDecPre ) // --
-TOK_DCL(tkEllipsis      , No, knopNone   ,Spr, knopEllipsis ) // ...
+TOK_DCL(tkEllipsis      , No, knopNone   , No, knopNone   ) // ...
 TOK_DCL(tkLParen        , No, knopNone   , No, knopNone   ) // (
 TOK_DCL(tkLBrack        , No, knopNone   , No, knopNone   ) // [
 TOK_DCL(tkDot           , No, knopNone   , No, knopNone   ) // .

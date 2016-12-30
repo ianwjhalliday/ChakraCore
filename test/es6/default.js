@@ -37,7 +37,7 @@ var tests = [
       assert.doesNotThrow(function () { var obj = { set f({a, b}) {} }; }, "Setter can have destructured param list with more than one parameter");
       assert.doesNotThrow(function () { var obj = { set f([a, b]) {} }; }, "Setter can have destructured array pattern with more than one parameter");
       assert.doesNotThrow(function () { var obj = { set f([a, ...b]) {} }; }, "Setter can have destructured array pattern with rest");
-      assert.throws(function () { eval("var obj = { set f(...a) {} };"); }, SyntaxError, "Rest parameter cannot be used with setters inside an object literal", "Unexpected ... operator");
+      assert.throws(function () { eval("var obj = { set f(...a) {} };"); }, SyntaxError, "Rest parameter cannot be used with setters inside an object literal", "Syntax error");
       assert.throws(function () { eval("var obj = { set f(a, b = 1) {} };"); }, SyntaxError, "Setters can have only one parameter even if one of them is default parameter", "Setter functions must have exactly one parameter");
       assert.throws(function () { eval("var obj = { set f(a = 1, b) {} };"); }, SyntaxError, "Setters can have only one parameter even if one of them is default parameter", "Setter functions must have exactly one parameter");
       assert.throws(function () { eval("var obj = { set f(a = 1, ...b) {} };") }, SyntaxError, "Setters can have only one parameter even if one of them is rest parameter", "Setter functions must have exactly one parameter");

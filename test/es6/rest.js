@@ -61,7 +61,7 @@ var tests = [
       assert.throws(function () { eval("(a = ...NaN, b = [...[1,2,3]], ...rest) => {};"); },
                     SyntaxError,
                     "Invalid spread with valid rest throws on the first invalid spread",
-                    "Unexpected ... operator");
+                    "Syntax error");
       assert.throws(function () { eval("(a = (...NaN), ...b = [...[1,2,3]], ...rest) => {};"); },
                     SyntaxError,
                     "Invalid spread in parens with invalid and valid rest throws on the first invalid spread",
@@ -73,24 +73,24 @@ var tests = [
       assert.throws(function () { eval("(a = [...NaN], ...b = [...[1,2,3]], rest) => {};"); },
                     SyntaxError,
                     "Invalid spread (runtime error) with invalid rest throws on the first invalid rest",
-                    "Unexpected ... operator");
+                    "The rest parameter cannot have a default initializer.");
       assert.throws(function () { eval("(a, ...b, ...rest) => {};"); },
                     SyntaxError,
                     "Invalid rest with valid rest throws on the first invalid rest",
-                    "Unexpected ... operator");
+                    "The rest parameter must be the last parameter in a formals list.");
       assert.throws(function () { eval("(...rest = ...NaN) => {};"); },
                     SyntaxError,
-                    "Invalid rest with invalid spread initializer throws on the invalid rest",
-                    "The rest parameter cannot have a default initializer.");
+                    "Invalid rest with invalid spread initializer throws on the invalid spread",
+                    "Syntax error");
 
       assert.throws(function () { eval("var x = { set setter(...x) {} }"); },
                     SyntaxError,
                     "Setter methods cannot have a rest parameter",
-                    "Unexpected ... operator");
+                    "Syntax error");
       assert.throws(function () { eval("var x = class { set setter(...x) {} }"); },
                     SyntaxError,
                     "Class setter methods cannot have a rest parameter",
-                    "Unexpected ... operator");
+                    "Syntax error");
 
       // Default evaluation of 'this' should happen after the rest formal is assigned a register
       assert.doesNotThrow(function () { eval("function foo(a = this, ...b) {}"); }, "'this' referenced in formal defaults should not affect rest parameter");

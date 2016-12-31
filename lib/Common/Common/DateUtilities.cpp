@@ -232,8 +232,6 @@ namespace Js
     void
     DateUtilities::GetYmdFromTv(double tv, DateTime::YMD *pymd)
     {
-//      Assert(pymd);
-
         int day;
         int dayMin;
         int yday;

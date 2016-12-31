@@ -198,8 +198,6 @@ void ScriptException::Free(void)
 
 void ScriptException::GetError(HRESULT *phr, EXCEPINFO *pei)
 {
-    Assert(phr);
-
     if (HR(SCRIPT_E_RECORDED) == *phr)
     {
         Assert(FAILED(HR(ei.scode)));
@@ -279,7 +277,6 @@ HRESULT  CompileScriptException::ProcessError(IScanner * pScan, HRESULT hr, Pars
     if (nullptr == pnodeBase && nullptr != pScan)
     {
         // parsing phase - get the line number from the scanner
-        Assert(pScan);
         this->hasLineNumberInfo = true;
         pScan->GetErrorLineInfo(this->ichMin, this->ichLim, this->line, this->ichMinLine);
 

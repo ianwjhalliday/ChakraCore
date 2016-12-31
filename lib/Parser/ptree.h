@@ -772,6 +772,3 @@ const int kcbPnVar          = kcbPnNone + sizeof(PnVar);
 const int kcbPnWhile        = kcbPnNone + sizeof(PnWhile);
 const int kcbPnWith         = kcbPnNone + sizeof(PnWith);
 const int kcbPnParamPattern = kcbPnNone + sizeof(PnParamPattern);
-
-#define AssertNodeMem(pnode) AssertPvCb(pnode, kcbPnNone)
-#define AssertNodeMemN(pnode) AssertPvCbN(pnode, kcbPnNone)

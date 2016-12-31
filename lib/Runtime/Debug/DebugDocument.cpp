@@ -54,7 +54,6 @@ namespace Js
         }
 
         ArenaAllocator* diagnosticArena = scriptContext->AllocatorForDiagnostics();
-        AssertMem(diagnosticArena);
 
         m_breakpointList = this->NewBreakpointList(diagnosticArena);
         return m_breakpointList;

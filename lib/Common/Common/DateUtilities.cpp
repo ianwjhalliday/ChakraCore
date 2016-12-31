@@ -232,8 +232,6 @@ namespace Js
     void
     DateUtilities::GetYmdFromTv(double tv, DateTime::YMD *pymd)
     {
-//      AssertMem(pymd);
-
         int day;
         int dayMin;
         int yday;
@@ -310,8 +308,6 @@ namespace Js
 
     void DateUtilities::GetYearFromTv(double tv, int &year, int &yearType)
     {
-        //      AssertMem(pymd);
-
         int day;
         int dayMin;
 

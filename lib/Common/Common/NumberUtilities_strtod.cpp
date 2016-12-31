@@ -347,7 +347,6 @@ template<typename EncodedChar>
 void BIGNUM::SetFromRgchExp(const EncodedChar *prgch, int32 cch, int32 lwExp)
 {
     Assert(cch > 0);
-    AssertArrMemR(prgch, cch);
 
     const BIGNUM *prgnum;
     int wT;
@@ -1882,7 +1881,6 @@ LFail:
 
 static BOOL FormatDigits(_In_reads_(pbLim - pbSrc) byte *pbSrc, byte *pbLim, int wExp10, _Out_writes_(cchDst) OLECHAR *pchDst, int cchDst)
 {
-    AssertArrMem(pbSrc, pbLim - pbSrc);
     AnalysisAssert(pbLim > pbSrc);
 
     if (pbLim <= pbSrc)
@@ -1986,7 +1984,6 @@ __success(return <= nDstBufSize)
 static int FormatDigitsFixed(byte *pbSrc, byte *pbLim, int wExp10, int nFractionDigits, __out_ecount_part(nDstBufSize, return) char16 *pchDst, int nDstBufSize)
 {
     AnalysisAssert(pbLim > pbSrc);
-    AssertArrMem(pbSrc, pbLim - pbSrc);
     AnalysisAssert(nFractionDigits >= -1);
     // nFractionDigits == -1 => print exactly as many fractional digits as necessary : no trailing 0's.
 
@@ -2082,8 +2079,6 @@ static int FormatDigitsExponential(
 {
     AnalysisAssert(pbLim > pbSrc);
     Assert(pbLim - pbSrc <= kcbMaxRgb);
-    AssertArrMem(pbSrc, pbLim - pbSrc);
-    AssertArrMem(pchDst, cchDst);
     Assert(wExp10 < 1000);
 
     int n = 1; // first digit
@@ -2195,7 +2190,6 @@ static int FormatDigitsExponential(
 static int RoundTo(byte *pbSrc, byte *pbLim, int nDigits, __out_bcount(nDigits+1) byte *pbDst, byte **ppbLimRes )
 {
     AnalysisAssert(pbLim > pbSrc);
-    AssertArrMem(pbSrc, pbLim - pbSrc);
     AnalysisAssert(nDigits >= 0);
 
     int retVal = 0;

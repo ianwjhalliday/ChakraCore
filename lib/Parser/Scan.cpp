@@ -72,9 +72,6 @@ IdentPtr Token::CreateIdentifier(HashTbl * hashTbl)
 template <typename EncodingPolicy>
 Scanner<EncodingPolicy>::Scanner(Parser* parser, HashTbl *phtbl, Token *ptoken, ErrHandler *perr, Js::ScriptContext* scriptContext)
 {
-    AssertMem(phtbl);
-    AssertMem(ptoken);
-    AssertMem(perr);
     m_parser = parser;
     m_phtbl = phtbl;
     m_ptoken = ptoken;

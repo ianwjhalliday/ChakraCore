@@ -232,7 +232,6 @@ template <typename CharType>
 IdentPtr HashTbl::PidHashNameLenWithHash(_In_reads_(cch) CharType const * prgch, int32 cch, uint32 luHash)
 {
     Assert(cch >= 0);
-    AssertArrMemR(prgch, cch);
     Assert(luHash == CaseSensitiveComputeHashCch(prgch, cch));
 
     IdentPtr * ppid;

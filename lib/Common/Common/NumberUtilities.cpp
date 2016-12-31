@@ -392,7 +392,6 @@ namespace Js
 
     BOOL NumberUtilities::FDblIsInt32(double dbl, int32 *plw)
     {
-        AssertMem(plw);
         double dblT;
 
         *plw = (int32)dbl;

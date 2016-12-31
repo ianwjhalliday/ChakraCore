@@ -720,7 +720,6 @@ private:
         Assert(FAILED(hr));
         m_pchMinTok = m_currentCharacter;
         m_cMinTokMultiUnits = this->m_cMultiUnits;
-        AssertMem(m_perr);
         m_perr->Throw(hr);
     }
 

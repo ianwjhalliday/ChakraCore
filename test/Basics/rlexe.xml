@@ -73,14 +73,17 @@
   <test>
     <default>
       <files>label1.js</files>
+      <baseline>label1.baseline</baseline>
       <compile-flags>-Intl-</compile-flags>
+      <tags>exclude_dynapogo</tags>
     </default>
   </test>
   <test>
     <default>
       <files>label1.js</files>
+      <baseline>label1.baseline</baseline>
       <compile-flags>-Force:Deferparse -Intl-</compile-flags>
-      <tags>exclude_ship</tags>
+      <tags>exclude_dynapogo,exclude_ship</tags>
     </default>
   </test>
   <test>
